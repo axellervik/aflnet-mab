@@ -298,6 +298,17 @@ static u32 a_extras_cnt;              /* Total number of tokens available */
 
 static u8* (*post_handler)(u8* buf, u32* len);
 
+/* MAB selection using EXP3 */
+typedef struct {
+    size_t n;             // current active arms
+    double gamma;         // exploration rate
+    double eta;           // learning rate
+    double *w;            // weights
+    double *p;            // probabilities
+} EXP3;
+
+EXP3 exp3_scheduler; /* Globally available EXP3 scheduler */
+
 /* Interesting values, as per config.h */
 
 static s8  interesting_8[]  = { INTERESTING_8 };
@@ -392,7 +403,7 @@ u8 terminate_child = 0;
 u8 corpus_read_or_sync = 0;
 u8 state_aware_mode = 0;
 u8 region_level_mutation = 0;
-u8 state_selection_algo = ROUND_ROBIN, seed_selection_algo = RANDOM_SELECTION;
+u8 state_selection_algo = ROUND_ROBIN, seed_selection_algo = MAB; //, seed_selection_algo = RANDOM_SELECTION;
 u8 feedback_type = CODE_FEEDBACK;   /* Select interesting seeds based on code feedback */
 u8 seed_schedule_type = IPSM_SCHEDULE; /* Choose next seeds based on state machine */
 u8 code_aware_schedule = 0;
@@ -682,6 +693,75 @@ unsigned int choose_target_state(u8 mode) {
   return result;
 }
 
+/* Dynamically allocated EXP3 implementation*/
+int exp3_init(EXP3 *exp, double gamma, double eta) {
+    if (!exp) return -1;
+    exp->n_arms   = 0;
+    exp->gamma    = gamma;
+    exp->eta      = eta;
+    exp->w        = NULL;
+    exp->p        = NULL;
+
+    // exp->w = ck_alloc(1 * sizeof(double));
+    // exp->p = ck_alloc(1 * sizeof(double));
+    // exp->w[0] = 1.0;
+    // exp->p[0] = 1.0;
+
+    return 0;
+}
+
+static void exp3_free(EXP3 *exp) {
+    if (!E) return;
+    free(E->w); E->w = NULL;
+    free(E->p); E->p = NULL;
+}
+
+void exp3_add_arm(EXP3 *exp) {    
+    exp->n += 1;
+    exp->w = ck_realloc(exp->w, exp->n * sizeof(double));
+    exp->p = ck_realloc(exp->p, exp->n * sizeof(double));
+
+    if (exp->n == 1) {
+        exp->weights[0] = 1.0;
+    } else {
+        double sum = 0.0;
+        for (int i = 0; i < exp->n - 1; i++) sum += exp->weights[i];
+        double avg = sum / (exp->n - 1);
+        exp->weights[exp->n - 1] = avg;
+    }
+
+    return exp->n;
+}
+
+void exp3_compute_probs(EXP3 *exp) {
+    double total = 0.0;
+    for (int i = 0; i < exp->n; i++) total += exp->weights[i];
+
+    for (int i = 0; i < exp->n; i++) {
+        exp->probs[i] = (1 - exp->gamma) * (exp->weights[i] / total) + exp->gamma / exp->n;
+    }
+}
+
+int exp3_select(EXP3 *exp) {
+    exp3_compute_probs(exp);
+
+    double r = (double)rand() / RAND_MAX;
+    double cum = 0.0;
+    for (int i = 0; i < exp->n; i++) {
+        cum += exp->probs[i];
+        if (r <= cum) return i;
+    }
+    return exp->n - 1; // fallback
+}
+
+// Update after reward
+void exp3_update(EXP3 *exp, int chosen, double reward) {
+    double p = exp->probs[chosen];
+    double x_hat = reward / p;
+    double growth = exp((exp->eta * x_hat) / exp->n);
+    exp->weights[chosen] *= growth;
+}
+
 /* Select a seed to exercise the target state */
 struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
 {
@@ -750,6 +830,10 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
           state->selected_seed_index++;
           if (state->selected_seed_index == state->seeds_count) state->selected_seed_index = 0;
         }
+        break;
+      case MAB:
+        state->selected_seed_index = exp3_select(exp3_scheduler);
+        result = state->seeds[state->selected_seed_index];
         break;
       default:
         break;
@@ -1607,6 +1691,11 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
 
   }
 
+  /* MAB */
+  if (seed_selection_algo == MAB) {
+    exp3_add_arm(exp3_scheduler);
+  }
+
   /* AFLNet: extract regions keeping client requests if needed */
   if (corpus_read_or_sync) {
     FILE *fp;
@@ -2339,7 +2428,11 @@ static void read_testcases(void) {
     ck_free(dfn);
 
     add_to_queue(fn, st.st_size, passed_det);
-
+    
+    /* EXP3: add initial arms to Bandit */
+    if (seed_selection_algo == MAB) {
+      exp3_add_arm(exp3_scheduler);
+    }
   }
 
   /* AFLNet: unset this flag to disable request extractions while adding new seed to the queue */
@@ -9283,6 +9376,13 @@ int main(int argc, char** argv) {
   else
     use_argv = argv + optind;
 
+  /* MAB setup */
+  if (seed_selection_algo == MAB) {
+    double gamma = 0.1; // exploration rate
+    double eta = 0.1; // learning rate
+    exp3_init(exp3_scheduler, gamma, eta);
+  }
+
   perform_dry_run(use_argv);
 
   cull_queue();
@@ -9362,6 +9462,13 @@ int main(int argc, char** argv) {
               queue_cycle++;
             }
           }
+        }
+        
+        if (seed_selection_algo == MAB) {
+          double reward = calculate_score(queue_cur);
+          reward /= (double)100.0;
+          reward *= queue_cur->regoin_count / max_seed_region_count;
+          exp3_update(exp3_scheduler, selected_seed, reward);
         }
       }
       else{
@@ -9465,6 +9572,13 @@ int main(int argc, char** argv) {
             queue_cycle++;
           }
         }
+      }
+
+      if (seed_selection_algo == MAB) {
+        double reward = calculate_score(queue_cur);
+        reward /= (double)100.0;
+        reward *= queue_cur->regoin_count / max_seed_region_count;
+        exp3_update(exp3_scheduler, selected_seed, reward);
       }
 
       skipped_fuzz = fuzz_one(use_argv);
