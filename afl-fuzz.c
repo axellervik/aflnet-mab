@@ -301,6 +301,7 @@ static u8* (*post_handler)(u8* buf, u32* len);
 /* MAB selection using EXP3 */
 typedef struct {
     size_t n;             // current active arms
+    size_t capacity;      // allocated capacity
     double gamma;         // exploration rate
     double eta;           // learning rate
     double *w;            // weights
@@ -693,73 +694,88 @@ unsigned int choose_target_state(u8 mode) {
   return result;
 }
 
-/* Dynamically allocated EXP3 implementation*/
+/* Dynamically allocated EXP3 implementation
+*  
+*  NOTES:
+*  Array resizing with geometric growth once array filled.
+*  24h fuzzing generates less than 1000 seeds, so even realloc on every add seems efficient enough not to impact throughput according to empiric tests. 
+*  Fixed array size with eviction mechanism is alternative if AFLNet throughput improves enough to warrant such a change in the future.
+*/
 int exp3_init(EXP3 *exp, double gamma, double eta) {
-    if (!exp) return -1;
-    exp->n_arms   = 0;
-    exp->gamma    = gamma;
-    exp->eta      = eta;
-    exp->w        = NULL;
-    exp->p        = NULL;
+  if (!exp) return -1;
 
-    // exp->w = ck_alloc(1 * sizeof(double));
-    // exp->p = ck_alloc(1 * sizeof(double));
-    // exp->w[0] = 1.0;
-    // exp->p[0] = 1.0;
+  exp->n        = 0;
+  exp->capacity = 64
+  exp->gamma    = gamma;
+  exp->eta      = eta;
+  exp->w        = ck_alloc(exp->cap * sizeof(double));
+  exp->p        = ck_alloc(exp->cap * sizeof(double));
 
-    return 0;
+  if (!exp->w || !exp->p) return -1;
+
+  return 0;
 }
 
 static void exp3_free(EXP3 *exp) {
-    if (!E) return;
-    free(E->w); E->w = NULL;
-    free(E->p); E->p = NULL;
+  if (!E) return;
+  
+  free(E->w); E->w = NULL;
+  free(E->p); E->p = NULL;
 }
 
-void exp3_add_arm(EXP3 *exp) {    
-    exp->n += 1;
-    exp->w = ck_realloc(exp->w, exp->n * sizeof(double));
-    exp->p = ck_realloc(exp->p, exp->n * sizeof(double));
+/* Add arm to Bandit, geometric growth of arrays if capacity met */
+void exp3_add_arm(EXP3 *exp) {
+  exp->n += 1;
 
-    if (exp->n == 1) {
-        exp->weights[0] = 1.0;
-    } else {
-        double sum = 0.0;
-        for (int i = 0; i < exp->n - 1; i++) sum += exp->weights[i];
-        double avg = sum / (exp->n - 1);
-        exp->weights[exp->n - 1] = avg;
-    }
+  if (exp->n > exp->capacity) {
+    exp->capacity *= 2;
+    exp->w = ck_realloc(exp->w, exp->capacity * sizeof(double));
+    exp->p = ck_realloc(exp->p, exp->capacity * sizeof(double));
+    if (!exp->w || !exp->p) return -1;
+  }
 
-    return exp->n;
+  if (exp->n == 1) {
+    exp->weights[0] = 1.0;
+  } else {
+    double sum = 0.0;
+    for (int i = 0; i < exp->n - 1; i++) sum += exp->weights[i];
+    double avg = sum / (exp->n - 1);
+    exp->weights[exp->n - 1] = avg;
+  }
+
+  return exp->n;
 }
 
+/* Compute probabilities from weights */
 void exp3_compute_probs(EXP3 *exp) {
-    double total = 0.0;
-    for (int i = 0; i < exp->n; i++) total += exp->weights[i];
+  double total = 0.0;
+  for (int i = 0; i < exp->n; i++) total += exp->weights[i];
 
-    for (int i = 0; i < exp->n; i++) {
-        exp->probs[i] = (1 - exp->gamma) * (exp->weights[i] / total) + exp->gamma / exp->n;
-    }
+  for (int i = 0; i < exp->n; i++) exp->probs[i] = (1 - exp->gamma) * (exp->weights[i] / total) + exp->gamma / exp->n;
 }
 
+/* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select(EXP3 *exp) {
-    exp3_compute_probs(exp);
+  exp3_compute_probs(exp);
 
-    double r = (double)rand() / RAND_MAX;
-    double cum = 0.0;
-    for (int i = 0; i < exp->n; i++) {
-        cum += exp->probs[i];
-        if (r <= cum) return i;
-    }
-    return exp->n - 1; // fallback
+  double r = (double)rand() / RAND_MAX;
+  double cum = 0.0;
+  for (int i = 0; i < exp->n; i++) {
+    cum += exp->probs[i];
+    if (r <= cum) return i;
+  }
+
+  return exp->n - 1; // fallback
 }
 
-// Update after reward
+/* Update weights using importance-weighted reward */
 void exp3_update(EXP3 *exp, int chosen, double reward) {
-    double p = exp->probs[chosen];
-    double x_hat = reward / p;
-    double growth = exp((exp->eta * x_hat) / exp->n);
-    exp->weights[chosen] *= growth;
+  double p = exp->probs[chosen];
+  if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
+
+  double x_hat = reward / p;
+  double growth = exp((exp->eta * x_hat) / exp->n);
+  exp->weights[chosen] *= growth;
 }
 
 /* Select a seed to exercise the target state */
@@ -2430,9 +2446,10 @@ static void read_testcases(void) {
     add_to_queue(fn, st.st_size, passed_det);
     
     /* EXP3: add initial arms to Bandit */
-    if (seed_selection_algo == MAB) {
-      exp3_add_arm(exp3_scheduler);
-    }
+    /* EDIT: done inside add_to_queue */
+    // if (seed_selection_algo == MAB) {
+    //   exp3_add_arm(exp3_scheduler);
+    // }
   }
 
   /* AFLNet: unset this flag to disable request extractions while adding new seed to the queue */
@@ -9379,7 +9396,7 @@ int main(int argc, char** argv) {
   /* MAB setup */
   if (seed_selection_algo == MAB) {
     double gamma = 0.1; // exploration rate
-    double eta = 0.1; // learning rate
+    double eta = 0.9; // learning rate
     exp3_init(exp3_scheduler, gamma, eta);
   }
 
@@ -9467,7 +9484,7 @@ int main(int argc, char** argv) {
         if (seed_selection_algo == MAB) {
           double reward = calculate_score(queue_cur);
           reward /= (double)100.0;
-          reward *= queue_cur->regoin_count / max_seed_region_count;
+          reward *= queue_cur->region_count / max_seed_region_count;
           exp3_update(exp3_scheduler, selected_seed, reward);
         }
       }
@@ -9577,7 +9594,7 @@ int main(int argc, char** argv) {
       if (seed_selection_algo == MAB) {
         double reward = calculate_score(queue_cur);
         reward /= (double)100.0;
-        reward *= queue_cur->regoin_count / max_seed_region_count;
+        reward *= queue_cur->region_count / max_seed_region_count;
         exp3_update(exp3_scheduler, selected_seed, reward);
       }
 
@@ -9694,6 +9711,7 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
+  exp3_free(exp3_scheduler);
   destroy_ipsm();
   destroy_message_code_map();
 
