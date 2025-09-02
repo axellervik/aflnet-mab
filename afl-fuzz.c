@@ -308,7 +308,7 @@ typedef struct {
     double *p;            // probabilities
 } EXP3;
 
-EXP3 exp3_scheduler; /* Globally available EXP3 scheduler */
+EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
 
 /* Interesting values, as per config.h */
 
@@ -705,22 +705,22 @@ int exp3_init(EXP3 *exp, double gamma, double eta) {
   if (!exp) return -1;
 
   exp->n        = 0;
-  exp->capacity = 64
+  exp->capacity = 64;
   exp->gamma    = gamma;
   exp->eta      = eta;
-  exp->w        = ck_alloc(exp->cap * sizeof(double));
-  exp->p        = ck_alloc(exp->cap * sizeof(double));
+  exp->w        = ck_alloc(exp->capacity * sizeof(double));
+  exp->p        = ck_alloc(exp->capacity * sizeof(double));
 
-  if (!exp->w || !exp->p) return -1;
+  if (!exp->w || !exp->p) PFATAL("Cannot allocate EXP3 parameters");
 
   return 0;
 }
 
 static void exp3_free(EXP3 *exp) {
-  if (!E) return;
+  if (!exp) PFATAL("Cannot free NULL EXP3");
   
-  free(E->w); E->w = NULL;
-  free(E->p); E->p = NULL;
+  free(exp->w); exp->w = NULL;
+  free(exp->p); exp->p = NULL;
 }
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
@@ -731,16 +731,16 @@ void exp3_add_arm(EXP3 *exp) {
     exp->capacity *= 2;
     exp->w = ck_realloc(exp->w, exp->capacity * sizeof(double));
     exp->p = ck_realloc(exp->p, exp->capacity * sizeof(double));
-    if (!exp->w || !exp->p) return -1;
+    if (!exp->w || !exp->p) PFATAL("Cannot grow EXP3 arms");
   }
 
   if (exp->n == 1) {
-    exp->weights[0] = 1.0;
+    exp->w[0] = 1.0;
   } else {
     double sum = 0.0;
-    for (int i = 0; i < exp->n - 1; i++) sum += exp->weights[i];
+    for (int i = 0; i < exp->n - 1; i++) sum += exp->w[i];
     double avg = sum / (exp->n - 1);
-    exp->weights[exp->n - 1] = avg;
+    exp->w[exp->n - 1] = avg;
   }
 
   return exp->n;
@@ -749,9 +749,9 @@ void exp3_add_arm(EXP3 *exp) {
 /* Compute probabilities from weights */
 void exp3_compute_probs(EXP3 *exp) {
   double total = 0.0;
-  for (int i = 0; i < exp->n; i++) total += exp->weights[i];
+  for (int i = 0; i < exp->n; i++) total += exp->w[i];
 
-  for (int i = 0; i < exp->n; i++) exp->probs[i] = (1 - exp->gamma) * (exp->weights[i] / total) + exp->gamma / exp->n;
+  for (int i = 0; i < exp->n; i++) exp->p[i] = (1 - exp->gamma) * (exp->w[i] / total) + exp->gamma / exp->n;
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
@@ -761,7 +761,7 @@ int exp3_select(EXP3 *exp) {
   double r = (double)rand() / RAND_MAX;
   double cum = 0.0;
   for (int i = 0; i < exp->n; i++) {
-    cum += exp->probs[i];
+    cum += exp->p[i];
     if (r <= cum) return i;
   }
 
@@ -770,7 +770,7 @@ int exp3_select(EXP3 *exp) {
 
 /* Update weights using importance-weighted reward */
 void exp3_update(EXP3 *exp, int chosen, double reward) {
-  double p = exp->probs[chosen];
+  double p = exp->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
   double x_hat = reward / p;
