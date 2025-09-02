@@ -306,6 +306,7 @@ typedef struct {
     double eta;           // learning rate
     double *w;            // weights
     double *p;            // probabilities
+    size_t idx;           // last selected arm
 } EXP3;
 
 EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
@@ -708,6 +709,7 @@ int exp3_init(EXP3 *exp, double gamma, double eta) {
   exp->capacity = 64;
   exp->gamma    = gamma;
   exp->eta      = eta;
+  exp->idx      = 0;
   exp->w        = ck_alloc(exp->capacity * sizeof(double));
   exp->p        = ck_alloc(exp->capacity * sizeof(double));
 
@@ -762,10 +764,15 @@ int exp3_select(EXP3 *exp) {
   double cum = 0.0;
   for (int i = 0; i < exp->n; i++) {
     cum += exp->p[i];
-    if (r <= cum) return i;
+    if (r <= cum) {
+      exp->idx = i;
+      return i;
+    }
   }
 
-  return exp->n - 1; // fallback
+  // fallback:
+  exp->idx = exp->n-1;
+  return exp->n - 1;
 }
 
 /* Update weights using importance-weighted reward */
@@ -9485,7 +9492,7 @@ int main(int argc, char** argv) {
           double reward = calculate_score(queue_cur);
           reward /= (double)100.0;
           reward *= queue_cur->region_count / max_seed_region_count;
-          exp3_update(exp3_scheduler, selected_seed, reward);
+          exp3_update(exp3_scheduler, queue_cur->, reward);
         }
       }
       else{
@@ -9595,7 +9602,7 @@ int main(int argc, char** argv) {
         double reward = calculate_score(queue_cur);
         reward /= (double)100.0;
         reward *= queue_cur->region_count / max_seed_region_count;
-        exp3_update(exp3_scheduler, selected_seed, reward);
+        exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
       }
 
       skipped_fuzz = fuzz_one(use_argv);
