@@ -775,13 +775,26 @@ int exp3_select(EXP3 *exp) {
   return exp->n - 1;
 }
 
+/* Fast natural exponential approximation */
+double fast_exp(double x) {
+    // constants
+    const double LOG2E = 1.4426950408889634; // 1 / ln(2)
+    union { uint64_t i; double d; } u;
+    
+    // magic constants
+    double y = x * LOG2E + 1023.0; 
+    u.i = (uint64_t)(y * (1ULL << 52));
+    
+    return u.d;
+}
+
 /* Update weights using importance-weighted reward */
 void exp3_update(EXP3 *exp, int chosen, double reward) {
   double p = exp->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
   double x_hat = reward / p;
-  double growth = exp((exp->eta * x_hat) / exp->n);
+  double growth = fast_exp((exp->eta * x_hat) / exp->n);
   exp->weights[chosen] *= growth;
 }
 
@@ -9492,7 +9505,7 @@ int main(int argc, char** argv) {
           double reward = calculate_score(queue_cur);
           reward /= (double)100.0;
           reward *= queue_cur->region_count / max_seed_region_count;
-          exp3_update(exp3_scheduler, queue_cur->, reward);
+          exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
         }
       }
       else{
