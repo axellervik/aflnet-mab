@@ -744,8 +744,6 @@ void exp3_add_arm(EXP3 *exp) {
     double avg = sum / (exp->n - 1);
     exp->w[exp->n - 1] = avg;
   }
-
-  return exp->n;
 }
 
 /* Compute probabilities from weights */
@@ -795,7 +793,7 @@ void exp3_update(EXP3 *exp, int chosen, double reward) {
 
   double x_hat = reward / p;
   double growth = fast_exp((exp->eta * x_hat) / exp->n);
-  exp->weights[chosen] *= growth;
+  exp->w[chosen] *= growth;
 }
 
 /* Select a seed to exercise the target state */
