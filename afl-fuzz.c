@@ -2462,12 +2462,6 @@ static void read_testcases(void) {
     ck_free(dfn);
 
     add_to_queue(fn, st.st_size, passed_det);
-    
-    /* EXP3: add initial arms to Bandit */
-    /* EDIT: done inside add_to_queue */
-    // if (seed_selection_algo == MAB) {
-    //   exp3_add_arm(exp3_scheduler);
-    // }
   }
 
   /* AFLNet: unset this flag to disable request extractions while adding new seed to the queue */
@@ -9500,9 +9494,20 @@ int main(int argc, char** argv) {
         }
         
         if (seed_selection_algo == MAB) {
+          FILE *fp = fopen("reward.log", "a");
           double reward = calculate_score(queue_cur);
+          if (fp) {
+            fprintf(fp, "calculate_score: %.17g\n", reward);
+          }
           reward /= (double)100.0;
+          if (fp) {
+            fprintf(fp, "div by 100: %.17g\n", reward);
+          }
           reward *= queue_cur->region_count / max_seed_region_count;
+          if (fp) {
+            fprintf(fp, "final value: %.17g\n", reward);
+            fclose(fp);
+          }
           exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
         }
       }
