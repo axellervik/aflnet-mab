@@ -9325,7 +9325,7 @@ int main(int argc, char** argv) {
   if (seed_selection_algo == MAB) {
     double gamma = 0.1; // exploration rate
     double eta = 0.9; // learning rate
-    exp3_scheduler = ck_alloc(sizeof(EXP3))
+    exp3_scheduler = ck_alloc(sizeof(EXP3));
     exp3_init(exp3_scheduler, gamma, eta);
   }
 
