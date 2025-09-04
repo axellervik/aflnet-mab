@@ -9738,7 +9738,8 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
-  exp3_free(exp3_scheduler);
+  if (seed_selection_algo == MAB) exp3_free(exp3_scheduler);
+  if (fp_weights) fclose(fp_weights);
   destroy_ipsm();
   destroy_message_code_map();
 
