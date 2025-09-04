@@ -315,7 +315,7 @@ EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
 static FILE *fp_weights = NULL;
 void log_double(double val) {
     if (!fp_weights) {
-        fp_weights = fopen("weights.log", "w");
+        fp_weights = fopen("./log/weights.log", "a");
         if (!fp_weights) return;
     }
     fprintf(fp_weights, "%.17g\n", val);
@@ -9738,8 +9738,8 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
-  if (seed_selection_algo == MAB)
-    exp3_free(exp3_scheduler);
+  if (seed_selection_algo == MAB) exp3_free(exp3_scheduler);
+  if (fp_weights) fclose(fp_weights);
   destroy_ipsm();
   destroy_message_code_map();
 
