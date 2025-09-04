@@ -311,6 +311,17 @@ typedef struct {
 
 EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
 
+/* Log file */
+static FILE *fp_weights = NULL;
+void log_double(double val) {
+    if (!fp_weights) {
+        fp_weights = fopen("weights.log", "w");
+        if (!fp_weights) return;
+    }
+    fprintf(fp_weights, "%.17g\n", val);
+    fflush(fp_weights);
+}
+
 /* Interesting values, as per config.h */
 
 static s8  interesting_8[]  = { INTERESTING_8 };
@@ -9494,20 +9505,11 @@ int main(int argc, char** argv) {
         }
         
         if (seed_selection_algo == MAB) {
-          FILE *fp = fopen("reward.log", "a");
           double reward = calculate_score(queue_cur);
-          if (fp) {
-            fprintf(fp, "calculate_score: %.17g\n", reward);
-          }
+          log_double(reward);
           reward /= (double)100.0;
-          if (fp) {
-            fprintf(fp, "div by 100: %.17g\n", reward);
-          }
           reward *= queue_cur->region_count / max_seed_region_count;
-          if (fp) {
-            fprintf(fp, "final value: %.17g\n", reward);
-            fclose(fp);
-          }
+          log_double(reward);
           exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
         }
       }
@@ -9616,8 +9618,10 @@ int main(int argc, char** argv) {
 
       if (seed_selection_algo == MAB) {
         double reward = calculate_score(queue_cur);
+        log_double(reward);
         reward /= (double)100.0;
         reward *= queue_cur->region_count / max_seed_region_count;
+        log_double(reward);
         exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
       }
 
