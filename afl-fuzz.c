@@ -315,7 +315,7 @@ EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
 static FILE *fp_weights = NULL;
 void log_double(double val) {
     if (!fp_weights) {
-        fp_weights = fopen("./log/weights.log", "w");
+        fp_weights = fopen("./log/weights.log", "a");
         if (!fp_weights) return;
     }
     fprintf(fp_weights, "%.17g\n", val);
