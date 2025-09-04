@@ -730,10 +730,11 @@ int exp3_init(EXP3 *exp, double gamma, double eta) {
 }
 
 static void exp3_free(EXP3 *exp) {
-  if (!exp) PFATAL("Cannot free NULL EXP3");
+  if (!exp) return;
   
-  free(exp->w); exp->w = NULL;
-  free(exp->p); exp->p = NULL;
+  ck_free(exp->w);
+  ck_free(exp->p);
+  ck_free(exp);
 }
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
@@ -9746,6 +9747,7 @@ stop_fuzzing:
   ck_free(sync_id);
 
   if (seed_selection_algo == MAB) exp3_free(exp3_scheduler);
+  exp3_scheduler = NULL;
   if (fp_weights) fclose(fp_weights);
   destroy_ipsm();
   destroy_message_code_map();
