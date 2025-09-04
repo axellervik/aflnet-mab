@@ -9738,7 +9738,7 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
-  if (fp) fclose(fp);
+  if (fp_weights) fclose(fp);
   exp3_free(exp3_scheduler);
   destroy_ipsm();
   destroy_message_code_map();
