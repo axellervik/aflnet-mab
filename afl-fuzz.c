@@ -759,6 +759,8 @@ void exp3_add_arm(EXP3 *exp) {
 
 /* Compute probabilities from weights */
 void exp3_compute_probs(EXP3 *exp) {
+  if (!exp || exp->n == 0) return;
+
   double total = 0.0;
   for (int i = 0; i < exp->n; i++) total += exp->w[i];
 
@@ -767,6 +769,8 @@ void exp3_compute_probs(EXP3 *exp) {
 
 /* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select(EXP3 *exp) {
+  if (!exp || exp->n == 0) return 0;
+
   exp3_compute_probs(exp);
 
   double r = (double)rand() / RAND_MAX;
@@ -799,6 +803,8 @@ double fast_exp(double x) {
 
 /* Update weights using importance-weighted reward */
 void exp3_update(EXP3 *exp, int chosen, double reward) {
+  if (!exp || exp->n == 0) return;
+  
   double p = exp->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
