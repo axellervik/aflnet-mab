@@ -309,7 +309,7 @@ typedef struct {
     size_t idx;           // last selected arm
 } EXP3;
 
-EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
+static EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
 
 /* Log file */
 static FILE *fp_weights = NULL;
@@ -804,7 +804,7 @@ double fast_exp(double x) {
 /* Update weights using importance-weighted reward */
 void exp3_update(EXP3 *exp, int chosen, double reward) {
   if (!exp || exp->n == 0) return;
-  
+
   double p = exp->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
@@ -9325,6 +9325,7 @@ int main(int argc, char** argv) {
   if (seed_selection_algo == MAB) {
     double gamma = 0.1; // exploration rate
     double eta = 0.9; // learning rate
+    exp3_scheduler = ck_alloc(sizeof(EXP3))
     exp3_init(exp3_scheduler, gamma, eta);
   }
 
