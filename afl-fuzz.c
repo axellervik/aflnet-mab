@@ -9315,6 +9315,13 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
+  /* MAB setup */
+  if (seed_selection_algo == MAB) {
+    double gamma = 0.1; // exploration rate
+    double eta = 0.9; // learning rate
+    exp3_init(exp3_scheduler, gamma, eta);
+  }
+
   //AFLNet - Check for required arguments
   if (!use_net) FATAL("Please specify network information of the server under test (e.g., tcp://127.0.0.1/8554)");
 
@@ -9415,13 +9422,6 @@ int main(int argc, char** argv) {
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
   else
     use_argv = argv + optind;
-
-  /* MAB setup */
-  if (seed_selection_algo == MAB) {
-    double gamma = 0.1; // exploration rate
-    double eta = 0.9; // learning rate
-    exp3_init(exp3_scheduler, gamma, eta);
-  }
 
   perform_dry_run(use_argv);
 
@@ -9738,7 +9738,8 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
-  exp3_free(exp3_scheduler);
+  if (seed_selection_algo == MAB)
+    exp3_free(exp3_scheduler);
   destroy_ipsm();
   destroy_message_code_map();
 
