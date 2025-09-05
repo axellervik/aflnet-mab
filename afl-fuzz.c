@@ -309,7 +309,7 @@ typedef struct {
     size_t idx;           // last selected arm
 } EXP3;
 
-static EXP3* exp3_scheduler; /* Globally available EXP3 scheduler */
+static EXP3* exp3; /* Globally available EXP3 scheduler */
 
 /* Log file */
 static FILE *fp_weights = NULL;
@@ -713,105 +713,92 @@ unsigned int choose_target_state(u8 mode) {
 *  24h fuzzing generates less than 1000 seeds, so even realloc on every add seems efficient enough not to impact throughput according to empiric tests. 
 *  Fixed array size with eviction mechanism is alternative if AFLNet throughput improves enough to warrant such a change in the future.
 */
-int exp3_init(EXP3 *exp, double gamma, double eta) {
-  if (!exp) return -1;
+int exp3_init(double gamma, double eta) {
+  exp3 = ck_alloc(sizeof(EXP3));
 
-  exp->n        = 0;
-  exp->capacity = 64;
-  exp->gamma    = gamma;
-  exp->eta      = eta;
-  exp->idx      = 0;
-  exp->w        = ck_alloc(exp->capacity * sizeof(double));
-  exp->p        = ck_alloc(exp->capacity * sizeof(double));
+  exp3->n        = 0;
+  exp3->capacity = 64;
+  exp3->gamma    = gamma;
+  exp3->eta      = eta;
+  exp3->idx      = 0;
+  exp3->w        = ck_alloc(exp3->capacity * sizeof(double));
+  exp3->p        = ck_alloc(exp3->capacity * sizeof(double));
 
-  if (!exp->w || !exp->p) PFATAL("Cannot allocate EXP3 parameters");
+  if (!exp3->w || !exp3->p) PFATAL("Cannot allocate EXP3 parameters");
 
   return 0;
 }
 
-static void exp3_free(EXP3 *exp) {
-  if (!exp) return;
+static void exp3_free() {
+  if (!exp3) return;
   
-  ck_free(exp->w);
-  ck_free(exp->p);
-  ck_free(exp);
+  ck_free(exp3->w);
+  ck_free(exp3->p);
+  ck_free(exp3);
 }
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
-void exp3_add_arm(EXP3 *exp) {
-  exp->n += 1;
+void exp3_add_arm() {
+  exp3->n += 1;
 
-  if (exp->n > exp->capacity) {
-    exp->capacity *= 2;
-    exp->w = ck_realloc(exp->w, exp->capacity * sizeof(double));
-    exp->p = ck_realloc(exp->p, exp->capacity * sizeof(double));
-    if (!exp->w || !exp->p) PFATAL("Cannot grow EXP3 arms");
+  if (exp3->n > exp3->capacity) {
+    exp3->capacity *= 2;
+    exp3->w = ck_realloc(exp3->w, exp3->capacity * sizeof(double));
+    exp3->p = ck_realloc(exp3->p, exp3->capacity * sizeof(double));
+    if (!exp3->w || !exp3->p) PFATAL("Cannot grow EXP3 arms");
   }
 
-  if (exp->n == 1) {
-    exp->w[0] = 1.0;
+  if (exp3->n == 1) {
+    exp3->w[0] = 1.0;
   } else {
     double sum = 0.0;
-    for (int i = 0; i < exp->n - 1; i++) sum += exp->w[i];
-    double avg = sum / (exp->n - 1);
-    exp->w[exp->n - 1] = avg;
+    for (int i = 0; i < exp3->n - 1; i++) sum += exp3->w[i];
+    double avg = sum / (exp3->n - 1);
+    exp3->w[exp3->n - 1] = avg;
   }
 }
 
 /* Compute probabilities from weights */
-void exp3_compute_probs(EXP3 *exp) {
-  if (!exp || exp->n == 0) return;
+void exp3_compute_probs() {
+  if (!exp3 || exp3->n == 0) return;
 
   double total = 0.0;
-  for (int i = 0; i < exp->n; i++) total += exp->w[i];
+  for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
 
-  for (int i = 0; i < exp->n; i++) exp->p[i] = (1 - exp->gamma) * (exp->w[i] / total) + exp->gamma / exp->n;
+  for (int i = 0; i < exp3->n; i++) exp3->p[i] = (1 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / exp3->n;
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
-int exp3_select(EXP3 *exp) {
-  if (!exp || exp->n == 0) return 0;
+int exp3_select() {
+  if (!exp3 || exp3->n == 0) return 0;
 
-  exp3_compute_probs(exp);
+  exp3_compute_probs();
 
   double r = (double)rand() / RAND_MAX;
   double cum = 0.0;
-  for (int i = 0; i < exp->n; i++) {
-    cum += exp->p[i];
+  for (int i = 0; i < exp3->n; i++) {
+    cum += exp3->p[i];
     if (r <= cum) {
-      exp->idx = i;
+      exp3->idx = i;
       return i;
     }
   }
 
   // fallback:
-  exp->idx = exp->n-1;
-  return exp->n - 1;
-}
-
-/* Fast natural exponential approximation */
-double fast_exp(double x) {
-    // constants
-    const double LOG2E = 1.4426950408889634; // 1 / ln(2)
-    union { uint64_t i; double d; } u;
-    
-    // magic constants
-    double y = x * LOG2E + 1023.0; 
-    u.i = (uint64_t)(y * (1ULL << 52));
-    
-    return u.d;
+  exp3->idx = exp3->n-1;
+  return exp3->n - 1;
 }
 
 /* Update weights using importance-weighted reward */
-void exp3_update(EXP3 *exp, int chosen, double reward) {
-  if (!exp || exp->n == 0) return;
+void exp3_update(int chosen, double reward) {
+  if (!exp3 || exp3->n == 0) return;
 
-  double p = exp->p[chosen];
+  double p = exp3->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
   double x_hat = reward / p;
-  double growth = fast_exp((exp->eta * x_hat) / exp->n);
-  exp->w[chosen] *= growth;
+  double growth = exp((exp3->eta * x_hat) / exp3->n);
+  exp3->w[chosen] *= growth;
 }
 
 /* Select a seed to exercise the target state */
@@ -884,7 +871,7 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
         }
         break;
       case MAB:
-        state->selected_seed_index = exp3_select(exp3_scheduler);
+        state->selected_seed_index = exp3_select();
         result = state->seeds[state->selected_seed_index];
         break;
       default:
@@ -1745,7 +1732,7 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
 
   /* MAB */
   if (seed_selection_algo == MAB) {
-    exp3_add_arm(exp3_scheduler);
+    exp3_add_arm();
   }
 
   /* AFLNet: extract regions keeping client requests if needed */
@@ -9326,8 +9313,7 @@ int main(int argc, char** argv) {
   if (seed_selection_algo == MAB) {
     double gamma = 0.1; // exploration rate
     double eta = 0.9; // learning rate
-    exp3_scheduler = ck_alloc(sizeof(EXP3));
-    exp3_init(exp3_scheduler, gamma, eta);
+    exp3_init(gamma, eta);
   }
 
   //AFLNet - Check for required arguments
@@ -9518,7 +9504,7 @@ int main(int argc, char** argv) {
           reward /= (double)100.0;
           reward *= queue_cur->region_count / max_seed_region_count;
           log_double(reward);
-          exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
+          exp3_update(exp3->idx, reward);
         }
       }
       else{
@@ -9630,7 +9616,7 @@ int main(int argc, char** argv) {
         reward /= (double)100.0;
         reward *= queue_cur->region_count / max_seed_region_count;
         log_double(reward);
-        exp3_update(exp3_scheduler, exp3_scheduler->idx, reward);
+        exp3_update(exp3->idx, reward);
       }
 
       skipped_fuzz = fuzz_one(use_argv);
@@ -9746,8 +9732,10 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
-  if (seed_selection_algo == MAB) exp3_free(exp3_scheduler);
-  exp3_scheduler = NULL;
+  if (seed_selection_algo == MAB) {
+    exp3_free();
+    exp3 = NULL;
+  }
   if (fp_weights) fclose(fp_weights);
   destroy_ipsm();
   destroy_message_code_map();
