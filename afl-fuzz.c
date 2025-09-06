@@ -932,7 +932,7 @@ void exp3_compute_probs() {
 
   double total = 0.0;
   for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
-  if (total <= 0.0) PFATAL("All weights zero")
+  if (total <= 0.0) PFATAL("All weights zero");
 
   for (int i = 0; i < exp3->n; i++) exp3->p[i] = (1 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / exp3->n;
 
