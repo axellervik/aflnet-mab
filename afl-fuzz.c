@@ -905,7 +905,7 @@ void exp3_add_arm() {
     fprintf(exp3_log,
             "[EXP3] Max capacity reached, reallocating from %d to %d capacity\n",
             exp3->capacity,
-            exp3->capacity * size);
+            exp3->capacity * 2);
     fflush(exp3_log);
 
     exp3->capacity *= 2;
@@ -984,7 +984,7 @@ int exp3_select() {
       return i;
     }
   }
-  
+
   fprintf(exp3_log,
           "\n [EXP3] Cummulative selection failed, defaulting to arm %d",
           exp3->n - 1);
