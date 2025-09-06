@@ -300,13 +300,13 @@ static u8* (*post_handler)(u8* buf, u32* len);
 
 /* MAB selection using EXP3 */
 typedef struct {
-    size_t n;             // current active arms
-    size_t capacity;      // allocated capacity
+    int    n;             // current active arms
+    int    capacity;      // allocated capacity
     double gamma;         // exploration rate
     double eta;           // learning rate
     double *w;            // weights
     double *p;            // probabilities
-    size_t idx;           // last selected arm
+    int    idx;           // last selected arm
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
