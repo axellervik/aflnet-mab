@@ -310,8 +310,8 @@ typedef struct {
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
-static double exp3_gamma; // exploration rate
-static double exp3_eta;   // learning rate
+static double exp3_gamma = 0.1; // exploration rate
+static double exp3_eta = 0.1;   // learning rate
 static FILE *exp3_log = NULL;
 
 /* Interesting values, as per config.h */
@@ -9338,13 +9338,13 @@ int main(int argc, char** argv) {
         break;
       
       case 'X': // exploration rate
-        if (seed_selection_algo != MAB) FATAL("-gamma only supported in MAB seed selection mode")
-        if (sscanf(optarg, %d, &exp3_gamma) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -gamma");
+        if (seed_selection_algo != MAB) FATAL("-gamma only supported in MAB seed selection mode");
+        if (sscanf(optarg, "%d", &exp3_gamma) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -gamma");
         break;
       
       case 'L': // learning rate
-        if (seed_selection_algo != MAB) FATAL("-eta only supported in MAB seed selection mode")
-        if (sscanf(optarg, %d, &exp3_eta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -eta");
+        if (seed_selection_algo != MAB) FATAL("-eta only supported in MAB seed selection mode");
+        if (sscanf(optarg, "%d", &exp3_eta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -eta");
         break;
       
       case 'b': /* feedback type */
@@ -9390,9 +9390,7 @@ int main(int argc, char** argv) {
 
   /* MAB setup */
   if (seed_selection_algo == MAB) {
-    double gamma = 0.2; // exploration rate
-    double eta = 0.2; // learning rate
-    exp3_init(gamma, eta);
+    exp3_init(exp3_gamma, exp3_eta);
   }
 
   //AFLNet - Check for required arguments
