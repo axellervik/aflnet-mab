@@ -862,7 +862,7 @@ int exp3_init(double gamma, double eta) {
   if (!exp3_log) {
     exp3_log = fopen("exp3.log", "a");
     if (!exp3_log) PFATAL("Cannot open exp3.log for writing");
-    fprintf(exp3_log, "Log created, initialising EXP3");
+    fprintf(exp3_log, "Log created, initialising EXP3\n");
     fflush(exp3_log);
   }
 
@@ -879,7 +879,7 @@ int exp3_init(double gamma, double eta) {
   if (!exp3->w || !exp3->p) PFATAL("Cannot allocate EXP3 parameters");
 
   if (exp3_log) {
-    fprintf(exp3_log, "EXP3 initialised");
+    fprintf(exp3_log, "EXP3 initialised\n");
     fflush(exp3_log);
   }
 
@@ -889,7 +889,7 @@ int exp3_init(double gamma, double eta) {
 static void exp3_free() {
   if (!exp3) return;
 
-  fprintf(exp3_log, "Freeing EXP3");
+  fprintf(exp3_log, "Freeing EXP3\n");
   fflush(exp3_log);
   
   ck_free(exp3->w);
@@ -901,11 +901,20 @@ static void exp3_free() {
 void exp3_add_arm() {
   exp3->n += 1;
 
-  if (exp3->n > exp3->capacity) {
+  if (exp3->n > exp3->capacity) {  
+    fprintf(exp3_log,
+            "[EXP3] Max capacity reached, reallocating from %d to %d capacity\n",
+            exp3->capacity,
+            exp3->capacity * size);
+    fflush(exp3_log);
+    
     exp3->capacity *= 2;
     exp3->w = ck_realloc(exp3->w, exp3->capacity * sizeof(double));
     exp3->p = ck_realloc(exp3->p, exp3->capacity * sizeof(double));
     if (!exp3->w || !exp3->p) PFATAL("Cannot grow EXP3 arms");
+
+    fprintf(exp3_log, "[EXP3] Reallocation successful\n");
+    fflush(exp3_log);
   }
 
   if (exp3->n == 1) {
@@ -920,7 +929,7 @@ void exp3_add_arm() {
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Added arm %d | Initial weight: %s",
+          "[EXP3] Added arm %d | Initial weight: %s\n",
           exp3->n,
           DF(exp3->w[exp3->n-1]));
   fflush(exp3_log);
