@@ -937,7 +937,9 @@ void exp3_compute_probs() {
   for (int i = 0; i < exp3->n; i++) exp3->p[i] = (1 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / exp3->n;
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms:\n", exp3->n);
+    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%s):\n",
+            exp3->n, 
+            DF(total));
     for (int i = 0; i < exp3->n; i++) {
       fprintf(exp3_log, "  Arm %d: weight=%s, prob=%s\n",
               i+1,
