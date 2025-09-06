@@ -9339,12 +9339,12 @@ int main(int argc, char** argv) {
       
       case 'X': // exploration rate
         if (seed_selection_algo != MAB) FATAL("-gamma only supported in MAB seed selection mode");
-        if (sscanf(optarg, %d, &exp3_gamma) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -gamma");
+        if (sscanf(optarg, "%d", &exp3_gamma) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -gamma");
         break;
       
       case 'L': // learning rate
         if (seed_selection_algo != MAB) FATAL("-eta only supported in MAB seed selection mode");
-        if (sscanf(optarg, %d, &exp3_eta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -eta");
+        if (sscanf(optarg, "%d", &exp3_eta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -eta");
         break;
       
       case 'b': /* feedback type */
