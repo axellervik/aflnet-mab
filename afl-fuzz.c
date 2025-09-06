@@ -855,10 +855,13 @@ unsigned int choose_target_state(u8 mode) {
 *  
 *  NOTES:
 *  Array resizing with geometric growth once array filled.
-*  24h fuzzing generates less than 1000 seeds, so even realloc on every add seems efficient enough not to impact throughput according to empiric tests. 
+*  24h fuzzing generates less than 1000 seeds, should not need to reallocate with large enough initial capacity.
+*  According to empiric tests, even realloc on every add should be efficient enough not to impact throughput. 
 *  Fixed array size with eviction mechanism is alternative if AFLNet throughput improves enough to warrant such a change in the future.
 */
-int exp3_init(double gamma, double eta) {
+void exp3_init(double gamma, double eta) {
+  if (exp3) return;
+
   if (!exp3_log) {
     exp3_log = fopen("exp3.log", "a");
     if (!exp3_log) PFATAL("Cannot open exp3.log for writing");
@@ -879,11 +882,11 @@ int exp3_init(double gamma, double eta) {
   if (!exp3->w || !exp3->p) PFATAL("Cannot allocate EXP3 parameters");
 
   if (exp3_log) {
-    fprintf(exp3_log, "EXP3 initialised\n");
+    fprintf(exp3_log, "[EXP3] EXP3 initialised\n");
     fflush(exp3_log);
   }
 
-  return 0;
+  return;
 }
 
 static void exp3_free() {
