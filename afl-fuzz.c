@@ -921,7 +921,7 @@ void exp3_add_arm() {
 
   fprintf(exp3_log,
           "[EXP3] Added arm %d | Initial weight: %s",
-          chosen,
+          exp3->n,
           DF(exp3->w[exp3->n-1]));
   fflush(exp3_log);
 }
@@ -940,7 +940,7 @@ void exp3_compute_probs() {
     fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms:\n", exp3->n);
     for (int i = 0; i < exp3->n; i++) {
       fprintf(exp3_log, "  Arm %d: weight=%s, prob=%s\n",
-              i,
+              i+1,
               DF(exp3->w[i]),
               DF(exp3->p[i]));
     }
