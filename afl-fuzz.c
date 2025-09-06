@@ -717,7 +717,7 @@ int exp3_init(double gamma, double eta) {
   exp3 = ck_alloc(sizeof(EXP3));
 
   exp3->n        = 0;
-  exp3->capacity = 64;
+  exp3->capacity = 1024;
   exp3->gamma    = gamma;
   exp3->eta      = eta;
   exp3->idx      = 0;
@@ -791,7 +791,7 @@ int exp3_select() {
 
 /* Update weights using importance-weighted reward */
 void exp3_update(int chosen, double reward) {
-  if (!exp3 || exp3->n == 0) return;
+  if (!exp3 || exp3->n == 0 || exp3->n <= chosen) return;
 
   double p = exp3->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
@@ -3697,6 +3697,7 @@ static void check_map_coverage(void) {
    expected. This is done only for the initial inputs, and only once. */
 
 static void perform_dry_run(char** argv) {
+  log_double((double)123.456);
 
   struct queue_entry* q = queue;
   u32 cal_failures = 0;
@@ -3732,6 +3733,8 @@ static void perform_dry_run(char** argv) {
 
     /* Update state-aware variables (e.g., state machine, regions and their annotations */
     if (state_aware_mode) update_state_aware_variables(q, 1);
+
+    log_double((double)123.456);
 
     /* save the seed to file for replaying */
     u8 *fn_replay = alloc_printf("%s/replayable-queue/%s", out_dir, basename(q->fname));
@@ -9309,12 +9312,14 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
+    log_double((double)123.456);
   /* MAB setup */
   if (seed_selection_algo == MAB) {
     double gamma = 0.2; // exploration rate
     double eta = 0.2; // learning rate
     exp3_init(gamma, eta);
   }
+    log_double((double)123.456);
 
   //AFLNet - Check for required arguments
   if (!use_net) FATAL("Please specify network information of the server under test (e.g., tcp://127.0.0.1/8554)");
@@ -9382,6 +9387,7 @@ int main(int argc, char** argv) {
 #ifdef HAVE_AFFINITY
   bind_to_free_cpu();
 #endif /* HAVE_AFFINITY */
+    log_double((double)123.456);
 
   check_crash_handling();
   check_cpu_governor();
@@ -9418,6 +9424,7 @@ int main(int argc, char** argv) {
     use_argv = argv + optind;
 
   perform_dry_run(use_argv);
+    log_double((double)123.456);
 
   cull_queue();
 
@@ -9437,6 +9444,7 @@ int main(int argc, char** argv) {
     start_time += 4000;
     if (stop_soon) goto stop_fuzzing;
   }
+    log_double((double)123.456);
 
   if (seed_schedule_type == HYBRID_SCHEDULE) {
 
@@ -9566,6 +9574,7 @@ int main(int argc, char** argv) {
     }
 
   } else if (seed_schedule_type == IPSM_SCHEDULE){
+    log_double((double)123.4567);
     code_aware_schedule = 0;
     if (state_ids_count == 0) {
       PFATAL("No server states have been detected. Server responses are likely empty!");
@@ -9706,10 +9715,12 @@ int main(int argc, char** argv) {
   if (waitpid(forksrv_pid, NULL, 0) <= 0) {
     WARNF("error waitpid\n");
   }
+    log_double((double)123.45678);
 
   write_bitmap();
   write_stats_file(0, 0, 0);
   save_auto();
+    log_double((double)123.45678);
 
 stop_fuzzing:
 
@@ -9731,12 +9742,14 @@ stop_fuzzing:
   destroy_extras();
   ck_free(target_path);
   ck_free(sync_id);
+    log_double((double)123.45678);
 
   if (seed_selection_algo == MAB) {
     exp3_free();
     exp3 = NULL;
   }
   if (fp_weights) fclose(fp_weights);
+    log_double((double)123.456789);
   destroy_ipsm();
   destroy_message_code_map();
 
