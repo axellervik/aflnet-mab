@@ -310,6 +310,8 @@ typedef struct {
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
+static double exp3_gamma; // exploration rate
+static double exp3_eta;   // learning rate
 static FILE *exp3_log = NULL;
 
 /* Interesting values, as per config.h */
@@ -959,7 +961,7 @@ void exp3_compute_probs() {
               DF(exp3->p[i]));
     }
     fflush(exp3_log);
-}
+  }
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
@@ -9053,7 +9055,7 @@ int main(int argc, char** argv) {
   gettimeofday(&tv, &tz);
   srandom(tv.tv_sec ^ tv.tv_usec ^ getpid());
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:w:e:P:KEq:s:RFc:l:b:h:")) > 0)
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:T:dnCB:S:M:x:QN:D:W:w:e:P:KEq:s:X:L:RFc:l:b:h:")) > 0)
 
     switch (opt) {
 
@@ -9333,6 +9335,16 @@ int main(int argc, char** argv) {
 
       case 's': /* seed selection option */
         if (sscanf(optarg, "%hhu", &seed_selection_algo) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -s");
+        break;
+      
+      case 'X': // exploration rate
+        if (seed_selection_algo != MAB) FATAL("-gamma only supported in MAB seed selection mode")
+        if (sscanf(optarg, %d, &exp3_gamma) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -gamma");
+        break;
+      
+      case 'L': // learning rate
+        if (seed_selection_algo != MAB) FATAL("-eta only supported in MAB seed selection mode")
+        if (sscanf(optarg, %d, &exp3_eta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -eta");
         break;
       
       case 'b': /* feedback type */
