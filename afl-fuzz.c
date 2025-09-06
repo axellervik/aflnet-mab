@@ -927,7 +927,7 @@ void exp3_add_arm() {
   } else {
     double sum = 0.0;
     for (int i = 0; i < exp3->n - 1; i++) sum += exp3->w[i];
-    double avg = sum / (exp3->n - 1);
+    double avg = sum / (double)(exp3->n - 1);
     exp3->w[exp3->n - 1] = avg;
   }
 
@@ -948,7 +948,7 @@ void exp3_compute_probs() {
   for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
   if (total <= 0.0) PFATAL("All weights zero");
 
-  for (int i = 0; i < exp3->n; i++) exp3->p[i] = (1 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / exp3->n;
+  for (int i = 0; i < exp3->n; i++) exp3->p[i] = ((double)1.0 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / (double)exp3->n;
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%s):\n",
