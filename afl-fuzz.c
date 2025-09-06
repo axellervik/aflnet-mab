@@ -310,17 +310,7 @@ typedef struct {
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
-
-/* Log file */
-static FILE *fp_weights = NULL;
-void log_double(double val) {
-    if (!fp_weights) {
-        fp_weights = fopen("weights.log", "a");
-        if (!fp_weights) return;
-    }
-    fprintf(fp_weights, "%.17g\n", val);
-    fflush(fp_weights);
-}
+static FILE *exp3_log = NULL;
 
 /* Interesting values, as per config.h */
 
@@ -714,6 +704,13 @@ unsigned int choose_target_state(u8 mode) {
 *  Fixed array size with eviction mechanism is alternative if AFLNet throughput improves enough to warrant such a change in the future.
 */
 int exp3_init(double gamma, double eta) {
+  if (!exp3_log) {
+    exp3_log = fopen("exp3.log", "a");
+    if (!exp3_log) PFATAL("Cannot open exp3.log for writing");
+    fprintf(exp3_log, "Log created, initialising EXP3");
+    fflush(exp3_log);
+  }
+
   exp3 = ck_alloc(sizeof(EXP3));
 
   exp3->n        = 0;
@@ -726,11 +723,19 @@ int exp3_init(double gamma, double eta) {
 
   if (!exp3->w || !exp3->p) PFATAL("Cannot allocate EXP3 parameters");
 
+  if (exp3_log) {
+    fprintf(exp3_log, "EXP3 initialised");
+    fflush(exp3_log);
+  }
+
   return 0;
 }
 
 static void exp3_free() {
   if (!exp3) return;
+
+  fprintf(exp3_log, "Freeing EXP3");
+  fflush(exp3_log);
   
   ck_free(exp3->w);
   ck_free(exp3->p);
@@ -756,6 +761,14 @@ void exp3_add_arm() {
     double avg = sum / (exp3->n - 1);
     exp3->w[exp3->n - 1] = avg;
   }
+
+  if (!exp3_log) return;
+
+  fprintf(exp3_log,
+          "[EXP3] Added arm %d | Initial weight: %s",
+          chosen,
+          DF(exp3->w[exp3->n-1]));
+  fflush(exp3_log);
 }
 
 /* Compute probabilities from weights */
@@ -764,8 +777,20 @@ void exp3_compute_probs() {
 
   double total = 0.0;
   for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
+  if (total <= 0.0) PFATAL("All weights zero")
 
   for (int i = 0; i < exp3->n; i++) exp3->p[i] = (1 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / exp3->n;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms:\n", exp3->n);
+    for (int i = 0; i < exp3->n; i++) {
+      fprintf(exp3_log, "  Arm %d: weight=%s, prob=%s\n",
+              i,
+              DF(exp3->w[i]),
+              DF(exp3->p[i]));
+    }
+    fflush(exp3_log);
+}
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
@@ -793,12 +818,25 @@ int exp3_select() {
 void exp3_update(int chosen, double reward) {
   if (!exp3 || exp3->n == 0 || exp3->n <= chosen) return;
 
+  double old_w = exp3->w[chosen];
+
   double p = exp3->p[chosen];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
   double x_hat = reward / p;
   double growth = exp((exp3->eta * x_hat) / exp3->n);
   exp3->w[chosen] *= growth;
+
+  if (!exp3_log) return;
+
+  fprintf(exp3_log,
+          "[EXP3] Updated arm %d | Reward: %s | Old weight: %s | New weight: %s | Growth factor: %s\n",
+          chosen,
+          DF(reward),
+          DF(old_w),
+          DF(exp3->w[chosen]),
+          DF(growth));
+  fflush(exp3_log);
 }
 
 /* Select a seed to exercise the target state */
@@ -3697,8 +3735,6 @@ static void check_map_coverage(void) {
    expected. This is done only for the initial inputs, and only once. */
 
 static void perform_dry_run(char** argv) {
-  log_double((double)123.456);
-
   struct queue_entry* q = queue;
   u32 cal_failures = 0;
   u8* skip_crashes = getenv("AFL_SKIP_CRASHES");
@@ -3733,8 +3769,6 @@ static void perform_dry_run(char** argv) {
 
     /* Update state-aware variables (e.g., state machine, regions and their annotations */
     if (state_aware_mode) update_state_aware_variables(q, 1);
-
-    log_double((double)123.456);
 
     /* save the seed to file for replaying */
     u8 *fn_replay = alloc_printf("%s/replayable-queue/%s", out_dir, basename(q->fname));
@@ -9312,14 +9346,12 @@ int main(int argc, char** argv) {
 
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
-    log_double((double)123.456);
   /* MAB setup */
   if (seed_selection_algo == MAB) {
     double gamma = 0.2; // exploration rate
     double eta = 0.2; // learning rate
     exp3_init(gamma, eta);
   }
-    log_double((double)123.456);
 
   //AFLNet - Check for required arguments
   if (!use_net) FATAL("Please specify network information of the server under test (e.g., tcp://127.0.0.1/8554)");
@@ -9387,7 +9419,6 @@ int main(int argc, char** argv) {
 #ifdef HAVE_AFFINITY
   bind_to_free_cpu();
 #endif /* HAVE_AFFINITY */
-    log_double((double)123.456);
 
   check_crash_handling();
   check_cpu_governor();
@@ -9424,7 +9455,6 @@ int main(int argc, char** argv) {
     use_argv = argv + optind;
 
   perform_dry_run(use_argv);
-    log_double((double)123.456);
 
   cull_queue();
 
@@ -9444,7 +9474,6 @@ int main(int argc, char** argv) {
     start_time += 4000;
     if (stop_soon) goto stop_fuzzing;
   }
-    log_double((double)123.456);
 
   if (seed_schedule_type == HYBRID_SCHEDULE) {
 
@@ -9508,10 +9537,8 @@ int main(int argc, char** argv) {
         
         if (seed_selection_algo == MAB) {
           double reward = (double)calculate_score(queue_cur);
-          log_double(reward);
           reward /= (double)100.0;
           reward *= queue_cur->region_count / max_seed_region_count;
-          log_double(reward);
           exp3_update(exp3->idx, reward);
         }
       }
@@ -9574,7 +9601,6 @@ int main(int argc, char** argv) {
     }
 
   } else if (seed_schedule_type == IPSM_SCHEDULE){
-    log_double((double)123.4567);
     code_aware_schedule = 0;
     if (state_ids_count == 0) {
       PFATAL("No server states have been detected. Server responses are likely empty!");
@@ -9621,10 +9647,8 @@ int main(int argc, char** argv) {
 
       if (seed_selection_algo == MAB) {
         double reward = (double)calculate_score(queue_cur);
-        log_double(reward);
         reward /= (double)100.0;
         reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
-        log_double(reward);
         exp3_update(exp3->idx, reward);
       }
 
@@ -9715,12 +9739,10 @@ int main(int argc, char** argv) {
   if (waitpid(forksrv_pid, NULL, 0) <= 0) {
     WARNF("error waitpid\n");
   }
-    log_double((double)123.45678);
 
   write_bitmap();
   write_stats_file(0, 0, 0);
   save_auto();
-    log_double((double)123.45678);
 
 stop_fuzzing:
 
@@ -9742,14 +9764,16 @@ stop_fuzzing:
   destroy_extras();
   ck_free(target_path);
   ck_free(sync_id);
-    log_double((double)123.45678);
 
   if (seed_selection_algo == MAB) {
     exp3_free();
     exp3 = NULL;
   }
-  if (fp_weights) fclose(fp_weights);
-    log_double((double)123.456789);
+  if (exp3_log) {
+    fclose(exp3_log);
+    exp3_log = NULL;
+  }
+
   destroy_ipsm();
   destroy_message_code_map();
 
