@@ -9578,7 +9578,7 @@ int main(int argc, char** argv) {
         if (seed_selection_algo == MAB) {
           double reward = (double)calculate_score(queue_cur);
           reward /= (double)100.0;
-          reward *= queue_cur->region_count / max_seed_region_count;
+          reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
           exp3_update(exp3->idx, reward);
         }
       }
