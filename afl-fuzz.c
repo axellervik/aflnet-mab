@@ -9311,8 +9311,8 @@ int main(int argc, char** argv) {
 
   /* MAB setup */
   if (seed_selection_algo == MAB) {
-    double gamma = 0.1; // exploration rate
-    double eta = 0.9; // learning rate
+    double gamma = 0.2; // exploration rate
+    double eta = 0.2; // learning rate
     exp3_init(gamma, eta);
   }
 
@@ -9499,7 +9499,7 @@ int main(int argc, char** argv) {
         }
         
         if (seed_selection_algo == MAB) {
-          double reward = calculate_score(queue_cur);
+          double reward = (double)calculate_score(queue_cur);
           log_double(reward);
           reward /= (double)100.0;
           reward *= queue_cur->region_count / max_seed_region_count;
@@ -9611,10 +9611,10 @@ int main(int argc, char** argv) {
       }
 
       if (seed_selection_algo == MAB) {
-        double reward = calculate_score(queue_cur);
+        double reward = (double)calculate_score(queue_cur);
         log_double(reward);
         reward /= (double)100.0;
-        reward *= queue_cur->region_count / max_seed_region_count;
+        reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
         log_double(reward);
         exp3_update(exp3->idx, reward);
       }
