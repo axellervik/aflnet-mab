@@ -907,7 +907,7 @@ void exp3_add_arm() {
             exp3->capacity,
             exp3->capacity * size);
     fflush(exp3_log);
-    
+
     exp3->capacity *= 2;
     exp3->w = ck_realloc(exp3->w, exp3->capacity * sizeof(double));
     exp3->p = ck_realloc(exp3->p, exp3->capacity * sizeof(double));
@@ -961,19 +961,34 @@ void exp3_compute_probs() {
 
 /* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select() {
+  fprintf(exp3_log, "[EXP3] Selecting arm");
+
   if (!exp3 || exp3->n == 0) return 0;
 
   exp3_compute_probs();
 
   double r = (double)rand() / RAND_MAX;
+  fprintf(exp3_log,
+          " | (double)rand() / RAND_MAX yielded: %s",
+          DF(r));
+  fflush(exp3_log);
   double cum = 0.0;
   for (int i = 0; i < exp3->n; i++) {
     cum += exp3->p[i];
     if (r <= cum) {
       exp3->idx = i;
+      fprintf(exp3_log,
+              " | Arm selected: %d\n",
+              i);
+      fflush(exp3_log);
       return i;
     }
   }
+  
+  fprintf(exp3_log,
+          "\n [EXP3] Cummulative selection failed, defaulting to arm %d",
+          exp3->n - 1);
+  fflush(exp3_log);
 
   // fallback:
   exp3->idx = exp3->n-1;
