@@ -308,6 +308,8 @@ typedef struct {
     double *w;            // weights
     double *p;            // probabilities
     int    idx;           // last selected arm
+    int    n_awake;       // number of non-sleeping arms
+    int    *awake;        // [0..(n_awake-1)] contains index of non-sleeping arms
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
@@ -895,6 +897,9 @@ void exp3_init(double gamma, double eta) {
   exp3->w        = ck_alloc(exp3->capacity * sizeof(double));
   exp3->p        = ck_alloc(exp3->capacity * sizeof(double));
 
+  exp3->n_awake  = 0;
+  exp3->awake    = ck_alloc(exp3->capacity * sizeof(int));
+
   if (!exp3->w || !exp3->p) PFATAL("Cannot allocate EXP3 parameters");
 
   if (exp3_log) {
@@ -967,8 +972,52 @@ void exp3_add_arm() {
 }
 
 /* Compute probabilities from weights */
-void exp3_compute_probs(state_info_t* state) {
+void exp3_compute_probs() {
   if (!exp3 || exp3->n == 0) return;
+
+  if (exp3_log)
+    fprintf(exp3_log, "[EXP3] Computing probs by summing only weights of state-specific seeds\n");
+
+  // SLEEPING BANDIT IMPLEMENTATION
+  double total = 0.0;
+  for (int i = 0; i < exp3->n_awake; i++) {
+    total += exp3->w[exp3->awake[i]];
+    if (exp3_log)
+      fprintf(exp3_log, "State seed index %d = whole queue index %d\n", i, exp3->awake[i]);
+  }
+
+  if (exp3_log)
+    fflush(exp3_log);
+
+  if (total <= 0.0) { // avoid division by 0
+    if (exp3_log)
+      fprintf(exp3_log, "WARNING: total <= 0.0\n");
+    return;
+  }
+
+  memset(exp3->p, 0, exp3->n * sizeof(double));
+
+  double exploitation_scale = (1.0 - exp3->gamma) / total;
+  double exploration_floor = exp3->gamma / (double)exp3->n_awake;
+
+  if (exp3_log)
+    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%lf):\n",
+            exp3->n_awake, 
+            total);
+
+  for (int i = 0; i < exp3->n_awake; i++) {
+    exp3->p[exp3->awake[i]] = exploitation_scale * exp3->w[exp3->awake[i]] + exploration_floor;
+    if (exp3_log)
+      fprintf(exp3_log, "  Arm %d: weight=%lf, prob=%lf\n",
+              exp3->awake[i] + 1,
+              exp3->w[exp3->awake[i]],
+              exp3->p[exp3->awake[i]]);
+  }
+
+  if (exp3_log)
+    fflush(exp3_log);
+
+  // non-sleeping version:
 
   // double total = 0.0;
   // for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
@@ -991,63 +1040,31 @@ void exp3_compute_probs(state_info_t* state) {
   //             exp3->w[i],
   //             exp3->p[i]);
   // }
+}
 
-  u32 indexes[state->seeds_count];
-  for (int i = 0; i < state->seeds_count; i++) {
+void exp3_lullaby(state_info_t *state) {
+  if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
+
+  exp3->n_awake = state->seeds_count;
+
+  for (int i = 0; i < exp3->n_awake; i++) {
     struct queue_entry *q = (struct queue_entry *) state->seeds[i];
-    indexes[i] = q->index;
+    exp3->awake[i] = q->index;
   }
 
-  if (exp3_log)
-    fprintf(exp3_log, "[EXP3] Computing probs by summing only weights of state-specific seeds\n");
-
-  // SLEEPING BANDIT IMPLEMENTATION
-  double total = 0.0;
-  for (int i = 0; i < state->seeds_count; i++) {
-    total += exp3->w[indexes[i]];
-    if (exp3_log)
-      fprintf(exp3_log, "State seed index %d = whole queue index %d\n", i, indexes[i]);
-  }
-
-  if (exp3_log)
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Arms asleep\n");
     fflush(exp3_log);
-
-  if (total <= 0.0) { // avoid division by 0
-    if (exp3_log)
-      fprintf(exp3_log, "WARNING: total <= 0.0\n");
-    return;
   }
-
-  memset(exp3->p, 0, exp3->n * sizeof(double));
-
-  double exploitation_scale = (1.0 - exp3->gamma) / total;
-  double exploration_floor = exp3->gamma / (double)state->seeds_count;
-
-  if (exp3_log)
-    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%lf):\n",
-            state->seeds_count, 
-            total);
-
-  for (int i = 0; i < state->seeds_count; i++) {
-    exp3->p[indexes[i]] = exploitation_scale * exp3->w[indexes[i]] + exploration_floor;
-    if (exp3_log)
-      fprintf(exp3_log, "  Arm %d: weight=%lf, prob=%lf\n",
-              indexes[i] + 1,
-              exp3->w[indexes[i]],
-              exp3->p[indexes[i]]);
-  }
-
-  if (exp3_log)
-    fflush(exp3_log);
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
-int exp3_select(state_info_t* state) {
+int exp3_select() {
   if (exp3_log) fprintf(exp3_log, "[EXP3] Selecting arm\n");
 
   if (!exp3 || exp3->n == 0) return 0;
 
-  exp3_compute_probs(state);
+  exp3_compute_probs();
 
   if (exp3_log) fprintf(exp3_log, "[EXP3] Probabilities computed");
 
@@ -1056,15 +1073,16 @@ int exp3_select(state_info_t* state) {
                         " | (double)rand() / RAND_MAX yielded: %lf",
                         r);
   double cum = 0.0;
-  for (int i = 0; i < exp3->n; i++) {
-    cum += exp3->p[i];
+  for (int i = 0; i < exp3->n_awake; i++) {
+    int idx = exp3->awake[i];
+    cum += exp3->p[idx];
     if (r <= cum) {
-      exp3->idx = i;
+      exp3->idx = idx;
       fprintf(exp3_log,
               " | Arm selected: %d [1-indexed]\n",
-              i+1);
+              idx+1);
       fflush(exp3_log);
-      return i;
+      return idx;
     }
   }
 
@@ -1074,7 +1092,6 @@ int exp3_select(state_info_t* state) {
             exp3->n);
             fflush(exp3_log);
   }
-
 
   // fallback:
   exp3->idx = exp3->n-1;
@@ -1210,7 +1227,8 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
       case MAB:
       fprintf(exp3_log, "Targetting state %d with seeds_count %d\n", state->id, state->seeds_count);
       fflush(exp3_log);
-        state->selected_seed_index = exp3_select(state);
+        exp3_lullaby(state);
+        state->selected_seed_index = exp3_select();
         result = state->seeds[state->selected_seed_index];
         break;
       default:
