@@ -1061,6 +1061,9 @@ void exp3_update() {
 /* Select a seed to exercise the target state */
 struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
 {
+  fprintf(exp3_log, "choose_seed() called\n");
+  fflush(exp3_log);
+
   khint_t k;
   state_info_t *state;
   struct queue_entry *result = NULL;
@@ -1137,6 +1140,9 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
   } else {
     PFATAL("AFLNet - the states hashtable has no entries for state %d", target_state_id);
   }
+
+  fprintf(exp3_log, "choose_seed() returned\n");
+  fflush(exp3_log);
 
   return result;
 }
@@ -9671,17 +9677,24 @@ int main(int argc, char** argv) {
     }
 
   } else if (seed_schedule_type == IPSM_SCHEDULE){
+  fprintf(exp3_log, "IPSM_SCHEDULE entered\n");
+  fflush(exp3_log);
     code_aware_schedule = 0;
     if (state_ids_count == 0) {
       PFATAL("No server states have been detected. Server responses are likely empty!");
     }
 
     while (1) {
+  fprintf(exp3_log, "while (1) started\n");
+  fflush(exp3_log);
+      
       u8 skipped_fuzz;
 
       struct queue_entry *selected_seed = NULL;
       while(!selected_seed || selected_seed->region_count == 0) {
         target_state_id = choose_target_state(state_selection_algo);
+  fprintf(exp3_log, "cull_queue() calledd\n");
+  fflush(exp3_log);
 
         /* Update favorites based on the selected state */
         cull_queue();
@@ -9692,6 +9705,8 @@ int main(int argc, char** argv) {
           kh_val(khms_states, k)->selected_times++;
         }
 
+  fprintf(exp3_log, "choose_seed calledd\n");
+  fflush(exp3_log);
         selected_seed = choose_seed(target_state_id, seed_selection_algo);
       }
 
@@ -9722,16 +9737,27 @@ int main(int argc, char** argv) {
       skipped_fuzz = fuzz_one(use_argv);
 
       if (!stop_soon && sync_id && !skipped_fuzz) {
+  fprintf(exp3_log, "!stop_soon && sync_id && !skipped_fuzz\n");
+  fflush(exp3_log);
 
-        if (!(sync_interval_cnt++ % SYNC_INTERVAL))
+        if (!(sync_interval_cnt++ % SYNC_INTERVAL)) {
+
+  fprintf(exp3_log, "!(sync_interval_cnt++ % SYNC_INTERVAL)\ni.e. calling sync_fuzzers(use_arg)\n");
+  fflush(exp3_log);
           sync_fuzzers(use_argv);
+        }
 
       }
 
       if (!stop_soon && exit_1) stop_soon = 2;
-
+      if (stop_soon) {
+  fprintf(exp3_log, "stop_soon marked!!!\n");
+  fflush(exp3_log);
+}
       if (stop_soon) break;
     }
+  fprintf(exp3_log, "IPSM_SCHEDULE done\n");
+  fflush(exp3_log);
   }
   else {
     while (1) {
