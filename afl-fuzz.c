@@ -1022,26 +1022,37 @@ int exp3_select() {
 }
 
 /* Update weights using importance-weighted reward */
-void exp3_update(int chosen, double reward) {
-  if (!exp3 || exp3->n == 0 || exp3->n <= chosen) return;
+void exp3_update() {
+  if (!exp3 || exp3->n == 0 || exp3->n <= exp3->idx) return;
 
-  double old_w = exp3->w[chosen];
+  double old_w = exp3->w[exp3->idx];
 
-  double p = exp3->p[chosen];
+  double p = exp3->p[exp3->idx];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
+
+  // double reward = (double)calculate_score(queue_cur);
+  // reward /= (double)100.0;
+  // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
+
+  // double reward = 0.5 * (double)(queue_cur->bitmap_size ? 1 : 0)
+  double reward = 0.5 * (double)total_bitmap_size / (double)queue_cur->bitmap_size
+                + 0.3 * (double)queue_cur->depth / (double)max_depth
+                + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
+
+  // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
 
   double x_hat = reward / p;
   double growth = exp((exp3->eta * x_hat) / exp3->n);
-  exp3->w[chosen] *= growth;
+  exp3->w[exp3->idx] *= growth;
 
   if (!exp3_log) return;
 
   fprintf(exp3_log,
           "[EXP3] Updated arm %d | Reward: %lf | Old weight: %lf | New weight: %lf | Growth factor: %lf | x_hat: %lf (%lf / %lf)\n",
-          chosen,
+          exp3->idx,
           reward,
           old_w,
-          exp3->w[chosen],
+          exp3->w[exp3->idx],
           growth,
           x_hat, reward, p);
   fflush(exp3_log);
@@ -9598,10 +9609,7 @@ int main(int argc, char** argv) {
         }
         
         if (seed_selection_algo == MAB) {
-          double reward = (double)calculate_score(queue_cur);
-          reward /= (double)100.0;
-          // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
-          exp3_update(exp3->idx, reward);
+          exp3_update();
         }
       }
       else{
@@ -9708,13 +9716,7 @@ int main(int argc, char** argv) {
       }
 
       if (seed_selection_algo == MAB) {
-        // double reward = (double)calculate_score(queue_cur);
-        // reward /= (double)100.0;
-        // double reward = 0.5 * (double)(queue_cur->bitmap_size ? 1 : 0)
-        //               + 0.5 * (double)queue_cur->unique_state_count / (double)state_ids_count;
-        double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
-        // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
-        exp3_update(exp3->idx, reward);
+        exp3_update();
       }
 
       skipped_fuzz = fuzz_one(use_argv);
