@@ -890,14 +890,14 @@ void exp3_init(double gamma, double eta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] Successful initialisation to:\n");
-    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->n: %d | exp3->capacity: %d | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->w: %p | exp3->p: %p\n",
+    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->w: %p | exp3->p: %p\n",
             exp3->n,
             exp3->capacity,
             exp3->gamma,
             exp3->eta,
             exp3->idx,
             (void*)exp3->w,
-            (void*)exp3->p)
+            (void*)exp3->p);
     fflush(exp3_log);
   }
 
