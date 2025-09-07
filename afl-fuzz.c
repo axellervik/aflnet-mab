@@ -871,6 +871,11 @@ void exp3_init(double gamma, double eta) {
     fflush(exp3_log);
   }
 
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Initialising\n");
+    fflush(exp3_log);
+  }
+
   exp3 = ck_alloc(sizeof(EXP3));
 
   exp3->n        = 0;
@@ -884,7 +889,15 @@ void exp3_init(double gamma, double eta) {
   if (!exp3->w || !exp3->p) PFATAL("Cannot allocate EXP3 parameters");
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] EXP3 initialised\n");
+    fprintf(exp3_log, "[EXP3] Successful initialisation to:\n");
+    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->n: %d | exp3->capacity: %d | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->w: %p | exp3->p: %p\n",
+            exp3->n,
+            exp3->capacity,
+            exp3->gamma,
+            exp3->eta,
+            exp3->idx,
+            (void*)exp3->w,
+            (void*)exp3->p)
     fflush(exp3_log);
   }
 
@@ -906,27 +919,31 @@ static void exp3_free() {
 void exp3_add_arm() {
   exp3->n += 1;
 
-  if (exp3->n > exp3->capacity) {  
-    fprintf(exp3_log,
-            "[EXP3] Max capacity reached, reallocating from %d to %d capacity\n",
-            exp3->capacity,
-            exp3->capacity * 2);
-    fflush(exp3_log);
+  if (exp3->n > exp3->capacity) {
+    if (exp3_log) {
+      fprintf(exp3_log,
+              "[EXP3] Max capacity reached, reallocating from %d to %d capacity\n",
+              exp3->capacity,
+              exp3->capacity * 2);
+      fflush(exp3_log);
+    }
 
     exp3->capacity *= 2;
     exp3->w = ck_realloc(exp3->w, exp3->capacity * sizeof(double));
     exp3->p = ck_realloc(exp3->p, exp3->capacity * sizeof(double));
     if (!exp3->w || !exp3->p) PFATAL("Cannot grow EXP3 arms");
 
-    fprintf(exp3_log, "[EXP3] Reallocation successful\n");
-    fflush(exp3_log);
+    if(exp3_log) {
+      fprintf(exp3_log, "[EXP3] Reallocation successful\n");
+      fflush(exp3_log);
+    }
   }
 
   if (exp3->n == 1) {
     exp3->w[0] = 1.0;
   } else {
     double sum = 0.0;
-    for (int i = 0; i < exp3->n - 1; i++) sum += exp3->w[i];
+    for (int i = 0; i < exp3->n-1; i++) sum += exp3->w[i];
     double avg = sum / (double)(exp3->n - 1);
     exp3->w[exp3->n - 1] = avg;
   }
@@ -934,9 +951,9 @@ void exp3_add_arm() {
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Added arm %d | Initial weight: %s\n",
+          "[EXP3] Added arm %d | Initial weight: %lf\n",
           exp3->n,
-          DF(exp3->w[exp3->n-1]));
+          exp3->w[exp3->n-1]);
   fflush(exp3_log);
 }
 
@@ -946,19 +963,19 @@ void exp3_compute_probs() {
 
   double total = 0.0;
   for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
-  if (total <= 0.0) PFATAL("All weights zero");
+  if (total <= 0.0) return; // avoid division by 0
 
   for (int i = 0; i < exp3->n; i++) exp3->p[i] = ((double)1.0 - exp3->gamma) * (exp3->w[i] / total) + exp3->gamma / (double)exp3->n;
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%s):\n",
+    fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%lf):\n",
             exp3->n, 
-            DF(total));
+            total);
     for (int i = 0; i < exp3->n; i++) {
-      fprintf(exp3_log, "  Arm %d: weight=%s, prob=%s\n",
+      fprintf(exp3_log, "  Arm %d: weight=%lf, prob=%lf\n",
               i+1,
-              DF(exp3->w[i]),
-              DF(exp3->p[i]));
+              exp3->w[i],
+              exp3->p[i]);
     }
     fflush(exp3_log);
   }
@@ -966,7 +983,7 @@ void exp3_compute_probs() {
 
 /* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select() {
-  fprintf(exp3_log, "[EXP3] Selecting arm");
+  fprintf(exp3_log, "[EXP3] Selecting arm\n");
 
   if (!exp3 || exp3->n == 0) return 0;
 
@@ -974,8 +991,8 @@ int exp3_select() {
 
   double r = (double)rand() / RAND_MAX;
   fprintf(exp3_log,
-          " | (double)rand() / RAND_MAX yielded: %s",
-          DF(r));
+          " | (double)rand() / RAND_MAX yielded: %lf",
+          r);
   fflush(exp3_log);
   double cum = 0.0;
   for (int i = 0; i < exp3->n; i++) {
@@ -983,8 +1000,8 @@ int exp3_select() {
     if (r <= cum) {
       exp3->idx = i;
       fprintf(exp3_log,
-              " | Arm selected: %d\n",
-              i);
+              " | Arm selected: %d [1-indexed]\n",
+              i+1);
       fflush(exp3_log);
       return i;
     }
@@ -1016,12 +1033,12 @@ void exp3_update(int chosen, double reward) {
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Updated arm %d | Reward: %s | Old weight: %s | New weight: %s | Growth factor: %s\n",
+          "[EXP3] Updated arm %d | Reward: %lf | Old weight: %lf | New weight: %lf | Growth factor: %lf\n",
           chosen,
-          DF(reward),
-          DF(old_w),
-          DF(exp3->w[chosen]),
-          DF(growth));
+          reward,
+          old_w,
+          exp3->w[chosen],
+          growth);
   fflush(exp3_log);
 }
 
