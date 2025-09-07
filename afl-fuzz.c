@@ -1147,6 +1147,8 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
         }
         break;
       case MAB:
+      fprintf(exp3_log, "Targetting state %d with seeds_count %d\n", state->id, state->seeds_count);
+      fflush(exp3_log);
         state->selected_seed_index = exp3_select();
         result = state->seeds[state->selected_seed_index];
         break;
@@ -7915,6 +7917,9 @@ abandon_entry:
 /* Grab interesting test cases from other fuzzers. */
 
 static void sync_fuzzers(char** argv) {
+
+  fprintf(exp3_log, "Entering sync_fuzzers()\n");
+  fflush(exp3_log);
 
   DIR* sd;
   struct dirent* sd_ent;
