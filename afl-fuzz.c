@@ -1052,7 +1052,8 @@ void exp3_update() {
           (double)queue_cur->depth,
           (double)max_depth,
           (double)queue_cur->unique_state_count,
-          (double)state_ids_count)
+          (double)state_ids_count);
+  fflush(exp3_log);
 
   // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
 
