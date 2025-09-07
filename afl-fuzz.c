@@ -1047,7 +1047,7 @@ void exp3_update() {
                 + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
 
   fprintf(exp3_log, "[EXP3] reward %lf calculated using 0.5 * %lf / %lf + 0.3 * %lf / %lf + 0.2 * %lf / %lf\n",
-          reward
+          reward,
           (double)queue_cur->bitmap_size,
           (double)total_bitmap_size,
           (double)queue_cur->depth,
