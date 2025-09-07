@@ -310,8 +310,8 @@ typedef struct {
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
-static double exp3_gamma = 0.9; // exploration rate
-static double exp3_eta = 0.9;   // learning rate
+static double exp3_gamma = 0.2; // exploration rate
+static double exp3_eta = 0.2;   // learning rate
 static FILE *exp3_log = NULL;
 
 /* Interesting values, as per config.h */
