@@ -1034,8 +1034,6 @@ int exp3_select() {
 void exp3_update() {
   if (!exp3 || exp3->n == 0 || exp3->n <= exp3->idx) return;
 
-  double old_w = exp3->w[exp3->idx];
-
   double p = exp3->p[exp3->idx];
   if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
 
