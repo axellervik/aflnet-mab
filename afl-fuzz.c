@@ -861,12 +861,19 @@ unsigned int choose_target_state(u8 mode) {
 *  24h fuzzing generates less than 1000 seeds, should not need to reallocate with large enough initial capacity.
 *  According to empiric tests, even realloc on every add should be efficient enough not to impact throughput. 
 *  Fixed array size with eviction mechanism is alternative if AFLNet throughput improves enough to warrant such a change in the future.
+* Possible optimisation is switching to log space to avoid using exp() each update.
 */
 void exp3_init(double gamma, double eta) {
+
+  if (exp3_log) {
+    fprintf(exp3_log, "exp3_init(%lf, %lf) called with current_entry = %d, queued_paths = %d\n", gamma, eta, current_entry, queued_paths);
+    fflush(exp3_log);
+  }
+
   if (exp3) return;
 
   if (!exp3_log) {
-    exp3_log = fopen("exp3.log", "a");
+    exp3_log = fopen("../../exp3.log", "a");
     if (!exp3_log) PFATAL("Cannot open exp3.log for writing");
     fprintf(exp3_log, "Log created, initialising EXP3\n");
     fflush(exp3_log);
@@ -1045,7 +1052,12 @@ void exp3_update() {
 
   double x_hat = reward / p;
   double growth = exp((exp3->eta * x_hat) / exp3->n);
-  exp3->w[exp3->idx] *= growth;
+
+  double old_w = exp3->w[exp3->idx];
+  double new_w = old_w * growth;
+
+  exp3->w[exp3->idx] = new_w;
+  exp3->w_sum += (new_w - old_w);
 
   if (!exp3_log) return;
 
@@ -1063,7 +1075,7 @@ void exp3_update() {
 /* Select a seed to exercise the target state */
 struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
 {
-  fprintf(exp3_log, "choose_seed() called\n");
+  fprintf(exp3_log, "choose_seed() entered\n");
   fflush(exp3_log);
 
   khint_t k;
@@ -1074,7 +1086,11 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
   if (k != kh_end(khms_states)) {
     state = kh_val(khms_states, k);
 
-    if (state->seeds_count == 0) return NULL;
+    if (state->seeds_count == 0) {
+  fprintf(exp3_log, "state->seeds_count == 0, returning NULL\n");
+  fflush(exp3_log);
+      return NULL;
+    }
 
     switch (mode) {
       case RANDOM_SELECTION: //Random seed selection
@@ -1143,7 +1159,7 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
     PFATAL("AFLNet - the states hashtable has no entries for state %d", target_state_id);
   }
 
-  fprintf(exp3_log, "choose_seed() returned\n");
+  fprintf(exp3_log, "choose_seed() returning with result->index %d\n", result->index);
   fflush(exp3_log);
 
   return result;
@@ -9707,7 +9723,7 @@ int main(int argc, char** argv) {
           kh_val(khms_states, k)->selected_times++;
         }
 
-  fprintf(exp3_log, "choose_seed calledd\n");
+  fprintf(exp3_log, "choose_seed about to be called\n");
   fflush(exp3_log);
         selected_seed = choose_seed(target_state_id, seed_selection_algo);
       }
