@@ -304,6 +304,7 @@ typedef struct {
     int    capacity;      // allocated capacity
     double gamma;         // exploration rate
     double eta;           // learning rate
+    double w_sum;         // sum of weights
     double *w;            // weights
     double *p;            // probabilities
     int    idx;           // last selected arm
@@ -883,6 +884,7 @@ void exp3_init(double gamma, double eta) {
   exp3->gamma    = gamma;
   exp3->eta      = eta;
   exp3->idx      = 0;
+  exp3->w_sum    = 0.0;
   exp3->w        = ck_alloc(exp3->capacity * sizeof(double));
   exp3->p        = ck_alloc(exp3->capacity * sizeof(double));
 
@@ -941,11 +943,11 @@ void exp3_add_arm() {
 
   if (exp3->n == 1) {
     exp3->w[0] = 1.0;
+    exp3->w_sum = 1.0;
   } else {
-    double sum = 0.0;
-    for (int i = 0; i < exp3->n-1; i++) sum += exp3->w[i];
-    double avg = sum / (double)(exp3->n - 1);
+    double avg = exp3->w_sum / (double)(exp3->n - 1);
     exp3->w[exp3->n - 1] = avg;
+    exp3->w_sum += avg;
   }
 
   if (!exp3_log) return;
