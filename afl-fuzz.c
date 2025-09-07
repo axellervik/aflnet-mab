@@ -1037,12 +1037,13 @@ void exp3_update(int chosen, double reward) {
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Updated arm %d | Reward: %lf | Old weight: %lf | New weight: %lf | Growth factor: %lf\n",
+          "[EXP3] Updated arm %d | Reward: %lf | Old weight: %lf | New weight: %lf | Growth factor: %lf | x_hat: %lf (%lf / %lf)\n",
           chosen,
           reward,
           old_w,
           exp3->w[chosen],
-          growth);
+          growth,
+          x_hat, reward, p);
   fflush(exp3_log);
 }
 
@@ -9599,7 +9600,7 @@ int main(int argc, char** argv) {
         if (seed_selection_algo == MAB) {
           double reward = (double)calculate_score(queue_cur);
           reward /= (double)100.0;
-          reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
+          // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
           exp3_update(exp3->idx, reward);
         }
       }
@@ -9709,7 +9710,7 @@ int main(int argc, char** argv) {
       if (seed_selection_algo == MAB) {
         double reward = (double)calculate_score(queue_cur);
         reward /= (double)100.0;
-        reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
+        // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
         exp3_update(exp3->idx, reward);
       }
 
