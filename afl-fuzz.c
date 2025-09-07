@@ -992,15 +992,21 @@ void exp3_compute_probs(state_info_t* state) {
   //             exp3->p[i]);
   // }
 
+  u32 indexes[state->seeds_count];
+  for (int i = 0; i < state->seeds_count; i++) {
+    struct queue_entry *q = (struct queue_entry *) state->seeds[i];
+    indexes[i] = q->index;
+  }
+
   if (exp3_log)
     fprintf(exp3_log, "[EXP3] Computing probs by summing only weights of state-specific seeds\n");
 
   // SLEEPING BANDIT IMPLEMENTATION
   double total = 0.0;
   for (int i = 0; i < state->seeds_count; i++) {
-    total += w[state->seeds[i]->index];
+    total += exp3->w[indexes[i]];
     if (exp3_log)
-      fprintf(exp3_log, "State seed index %d = whole queue index %d\n", i, state->seeds[i]->index);
+      fprintf(exp3_log, "State seed index %d = whole queue index %d\n", i, indexes[i]);
   }
 
   if (exp3_log)
@@ -1015,20 +1021,20 @@ void exp3_compute_probs(state_info_t* state) {
   memset(exp3->p, 0, exp3->n * sizeof(double));
 
   double exploitation_scale = (1.0 - exp3->gamma) / total;
-  double exploration_floor = exp3->gamma / (double)exp3->n;
+  double exploration_floor = exp3->gamma / (double)state->seeds_count;
 
   if (exp3_log)
     fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%lf):\n",
-            state-seeds_count, 
+            state->seeds_count, 
             total);
 
   for (int i = 0; i < state->seeds_count; i++) {
-    exp3->p[state->seeds[i]->index] = exploitation_scale * exp3->w[state->seeds[i]->index] + exploration_floor;
+    exp3->p[indexes[i]] = exploitation_scale * exp3->w[indexes[i]] + exploration_floor;
     if (exp3_log)
       fprintf(exp3_log, "  Arm %d: weight=%lf, prob=%lf\n",
-              state->seeds[i]->index + 1,
-              exp3->w[state->seeds[i]->index],
-              exp3->p[state->seeds[i]->index]);
+              indexes[i] + 1,
+              exp3->w[indexes[i]],
+              exp3->p[indexes[i]]);
   }
 
   if (exp3_log)
