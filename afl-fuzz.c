@@ -1042,7 +1042,7 @@ void exp3_update() {
   // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
 
   // double reward = 0.5 * (double)(queue_cur->bitmap_size ? 1 : 0)
-  double reward = 0.5 * (double)total_bitmap_size / (double)queue_cur->bitmap_size
+  double reward = 0.5 * (double)queue_cur->bitmap_size / (double)total_bitmap_size 
                 + 0.3 * (double)queue_cur->depth / (double)max_depth
                 + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
 
