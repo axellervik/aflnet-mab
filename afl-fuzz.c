@@ -989,7 +989,7 @@ int exp3_select() {
 
   exp3_compute_probs();
 
-  if (exp3_log) fprintf(exp3_log, "[EXP3] Probabilities computed")
+  if (exp3_log) fprintf(exp3_log, "[EXP3] Probabilities computed");
 
   double r = (double)rand() / RAND_MAX;
   if (exp3_log) fprintf(exp3_log,
