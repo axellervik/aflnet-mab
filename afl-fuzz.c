@@ -310,8 +310,8 @@ typedef struct {
 } EXP3;
 
 static EXP3* exp3; /* Globally available EXP3 scheduler */
-static double exp3_gamma = 0.1; // exploration rate
-static double exp3_eta = 0.1;   // learning rate
+static double exp3_gamma = 0.9; // exploration rate
+static double exp3_eta = 0.9;   // learning rate
 static FILE *exp3_log = NULL;
 
 /* Interesting values, as per config.h */
@@ -9708,8 +9708,11 @@ int main(int argc, char** argv) {
       }
 
       if (seed_selection_algo == MAB) {
-        double reward = (double)calculate_score(queue_cur);
-        reward /= (double)100.0;
+        // double reward = (double)calculate_score(queue_cur);
+        // reward /= (double)100.0;
+        // double reward = 0.5 * (double)(queue_cur->bitmap_size ? 1 : 0)
+        //               + 0.5 * (double)queue_cur->unique_state_count / (double)state_ids_count;
+        double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
         // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
         exp3_update(exp3->idx, reward);
       }
