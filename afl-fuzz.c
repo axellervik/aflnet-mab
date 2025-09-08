@@ -868,6 +868,7 @@ unsigned int choose_target_state(u8 mode) {
 * Possible optimisation is switching to log space to avoid using exp() each update.
 */
 void exp3_init(double gamma, double eta) {
+  u64 t0 = get_cur_time();
 
   if (exp3_log) {
     fprintf(exp3_log, "exp3_init(%lf, %lf) called with current_entry = %d, queued_paths = %d\n", gamma, eta, current_entry, queued_paths);
@@ -916,6 +917,8 @@ void exp3_init(double gamma, double eta) {
             exp3->idx,
             (void*)exp3->w,
             (void*)exp3->p);
+
+    fprintf(exp3_log, "%llu exp3_init()\n", get_cur_time() - t0);
     fflush(exp3_log);
   }
 
@@ -923,18 +926,27 @@ void exp3_init(double gamma, double eta) {
 }
 
 static void exp3_free() {
+  u64 t0 = get_cur_time();
   if (!exp3) return;
 
-  fprintf(exp3_log, "Freeing EXP3\n");
-  fflush(exp3_log);
+  if (exp3_log) {
+    fprintf(exp3_log, "Freeing EXP3\n");
+    fflush(exp3_log);
+  }
   
   ck_free(exp3->w);
   ck_free(exp3->p);
   ck_free(exp3);
+
+  if (exp3_log) {
+    fprintf(exp3_log, "%llu exp3_free()\n", get_cur_time() - t0); 
+    fflush(exp3_log);
+  }
 }
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
 void exp3_add_arm() {
+  u64 t0 = get_cur_time();
   exp3->n += 1;
 
   if (exp3->n > exp3->capacity) {
@@ -972,11 +984,14 @@ void exp3_add_arm() {
           "[EXP3] Added arm %d | Initial weight: %lf\n",
           exp3->n,
           exp3->w[exp3->n-1]);
+  
+  fprintf(exp3_log, "%llu exp3_add_arm()\n", get_cur_time() - t0);
   fflush(exp3_log);
 }
 
 /* Compute probabilities from weights */
 void exp3_compute_probs() {
+  u64 t0 = get_cur_time();
   if (!exp3 || exp3->n == 0) return;
 
   if (exp3_log)
@@ -986,8 +1001,8 @@ void exp3_compute_probs() {
   double total = 0.0;
   for (int i = 0; i < exp3->n_awake; i++) {
     total += exp3->w[exp3->awake[i]];
-    if (exp3_log)
-      fprintf(exp3_log, "State seed index %d = whole queue index %d\n", i, exp3->awake[i]);
+    // if (exp3_log)
+    //   fprintf(exp3_log, "State seed index %d = whole queue index %d\n", i, exp3->awake[i]);
   }
 
   if (exp3_log)
@@ -1018,12 +1033,15 @@ void exp3_compute_probs() {
               exp3->p[exp3->awake[i]]);
   }
 
-  if (exp3_log)
+  if (exp3_log) {
+    fprintf(exp3_log, "%llu exp3_compute_probs()\n", get_cur_time() - t0);
     fflush(exp3_log);
+  }
 }
 
 /* Wake or put arms to sleep based on whether seed traverses target state */
 void exp3_lullaby(state_info_t *state) {
+  u64 t0 = get_cur_time();
   if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
 
   exp3->n_awake = state->seeds_count;
@@ -1035,12 +1053,14 @@ void exp3_lullaby(state_info_t *state) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] %d arms asleep, %d arms awake\n", (exp3->n - exp3->n_awake), exp3->n_awake);
+    fprintf(exp3_log, "%llu exp3_lullaby()\n", get_cur_time() - t0);
     fflush(exp3_log);
   }
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select() {
+  u64 t0 = get_cur_time();
   if (exp3_log) fprintf(exp3_log, "[EXP3] Selecting arm\n");
 
   if (!exp3 || exp3->n == 0) return 0;
@@ -1060,9 +1080,10 @@ int exp3_select() {
     if (r <= cum) {
       exp3->idx = i;
       fprintf(exp3_log,
-              " | Arm selected: %d globally, %d among awake\n",
+              " | Arm selected: %d globally, %d among awake\n%llu exp3_select()\n",
               idx+1,
-		      i+1);
+		          i+1,
+              get_cur_time() - t0);
       fflush(exp3_log);
       return i;
     }
