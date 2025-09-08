@@ -308,6 +308,7 @@ typedef struct {
     double *w;            // weights
     double *p;            // probabilities
     int    idx;           // last selected arm
+    double prb;           // probability of last selected arm
     u8     code_cov;      // reward calculation
     u8     state_cov;     // --------||--------
     int    n_awake;       // number of non-sleeping arms
@@ -897,7 +898,7 @@ unsigned int choose_target_state(u8 mode) {
 */
 EXP_ST u64 timer;
 void exp3_init(double gamma, double eta) {
-  timer = get_cur_time(); u64 t0 = timer;
+  timer = get_cur_time_us(); u64 t0 = timer;
 
   if (exp3_log) {
     fprintf(exp3_log, "exp3_init(%lf, %lf) called with current_entry = %d, queued_paths = %d\n", gamma, eta, current_entry, queued_paths);
@@ -925,6 +926,7 @@ void exp3_init(double gamma, double eta) {
   exp3->gamma     = gamma;
   exp3->eta       = eta;
   exp3->idx       = 0;
+  exp3->prb       = 0.0;
   exp3->code_cov  = 0;
   exp3->state_cov = 0;
   exp3->w_sum     = 0.0;
@@ -947,7 +949,7 @@ void exp3_init(double gamma, double eta) {
             (void*)exp3->w,
             (void*)exp3->p);
 
-    fprintf(exp3_log, "%llu exp3_init()\n", get_cur_time() - t0);
+    fprintf(exp3_log, "%llu exp3_init()\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 
@@ -955,7 +957,7 @@ void exp3_init(double gamma, double eta) {
 }
 
 static void exp3_free() {
-  timer = get_cur_time(); u64 t0 = timer;
+  timer = get_cur_time_us(); u64 t0 = timer;
   if (!exp3) return;
 
   if (exp3_log) {
@@ -968,14 +970,14 @@ static void exp3_free() {
   ck_free(exp3);
 
   if (exp3_log) {
-    fprintf(exp3_log, "%llu exp3_free()\n", get_cur_time() - t0); 
+    fprintf(exp3_log, "%llu exp3_free()\n", get_cur_time_us() - t0); 
     fflush(exp3_log);
   }
 }
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
 void exp3_add_arm() {
-  timer = get_cur_time(); u64 t0 = timer;
+  timer = get_cur_time_us(); u64 t0 = timer;
   exp3->n += 1;
 
   if (exp3->n > exp3->capacity) {
@@ -1014,13 +1016,13 @@ void exp3_add_arm() {
           exp3->n,
           exp3->w[exp3->n-1]);
   
-  fprintf(exp3_log, "%llu exp3_add_arm()\n", get_cur_time() - t0);
+  fprintf(exp3_log, "%llu exp3_add_arm()\n", get_cur_time_us() - t0);
   fflush(exp3_log);
 }
 
 /* Compute probabilities from weights */
 void exp3_compute_probs() {
-  timer = get_cur_time(); u64 t0 = timer;
+  timer = get_cur_time_us(); u64 t0 = timer;
   if (!exp3 || exp3->n == 0) return;
 
   if (exp3_log)
@@ -1064,14 +1066,14 @@ void exp3_compute_probs() {
   }
 
   if (exp3_log) {
-    fprintf(exp3_log, "%llu exp3_compute_probs()\n", get_cur_time() - t0);
+    fprintf(exp3_log, "%llu exp3_compute_probs()\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 }
 
 /* Wake or put arms to sleep based on whether seed traverses target state */
 void exp3_lullaby(state_info_t *state) {
-  timer = get_cur_time(); u64 t0 = timer;
+  timer = get_cur_time_us(); u64 t0 = timer;
   if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
 
   exp3->n_awake = state->seeds_count;
@@ -1083,14 +1085,14 @@ void exp3_lullaby(state_info_t *state) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] %d arms asleep, %d arms awake\n", (exp3->n - exp3->n_awake), exp3->n_awake);
-    fprintf(exp3_log, "%llu exp3_lullaby()\n", get_cur_time() - t0);
+    fprintf(exp3_log, "%llu exp3_lullaby()\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 }
 
 /* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select() {
-  timer = get_cur_time(); u64 t0 = timer;
+  timer = get_cur_time_us(); u64 t0 = timer;
   if (exp3_log) fprintf(exp3_log, "[EXP3] Selecting arm\n");
 
   if (!exp3 || exp3->n == 0) return 0;
@@ -1109,11 +1111,12 @@ int exp3_select() {
     cum += exp3->p[idx];
     if (r <= cum) {
       exp3->idx = i;
+      exp3->prb = exp3->p[idx];
       fprintf(exp3_log,
               " | Arm selected: %d globally, %d among awake\n%llu exp3_select()\n",
               idx+1,
 		          i+1,
-              get_cur_time() - t0);
+              get_cur_time_us() - t0);
       fflush(exp3_log);
       return i;
     }
@@ -1135,8 +1138,8 @@ int exp3_select() {
 void exp3_update() {
   if (!exp3 || exp3->n == 0 || exp3->n <= exp3->idx) return;
 
-  double p = exp3->p[exp3->idx];
-  if (p <= 0.0) return; // should never happen due to exploration floor, unless seeds become too many
+  // double p = exp3->p[exp3->idx];
+  if (exp3->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
 
   // double reward = (double)calculate_score(queue_cur);
   // reward /= (double)100.0;
@@ -1148,11 +1151,11 @@ void exp3_update() {
   //               + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
 
   // u8 hnb = has_new_bits(virgin_bits);
-  double reward = 0.31 * exp3->code_cov
-                + 0.69 * exp3->state_cov;
+  double reward = 0.6 * exp3->code_cov
+                + 0.4 * exp3->state_cov;
                 // + 0.2 * ;
                 
-fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.3 * %d \n+ 0.7 * %d \n",
+fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.4 * %d \n+ 0.6 * %d \n",
   reward,
   exp3->code_cov,
   exp3->state_cov
@@ -1169,7 +1172,7 @@ exp3->code_cov = 0;
 exp3->state_cov = 0;
   // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
 
-  double x_hat = reward / p;
+  double x_hat = reward / exp3->prb;
   double growth = exp((exp3->eta * x_hat) / exp3->n);
 
   double old_w = exp3->w[exp3->idx];
@@ -1181,13 +1184,13 @@ exp3->state_cov = 0;
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Updated arm %d (1-idx'd) \n| Reward: %lf \n| Weight: %lf -> %lf (growth factor: %lf) \n| x_hat: %lf (%lf / %lf)\n",
+          "[EXP3] Updated arm %d (1-idx'd) \n| Reward: %lf \n| Weight: %lf -> %lf (growth factor: %lf) \n| x_hat: %lf (= %lf / %lf)\n",
           exp3->idx+1,
           reward,
           old_w,
           exp3->w[exp3->idx],
           growth,
-          x_hat, reward, p);
+          x_hat, reward, exp3->prb);
   fflush(exp3_log);
 }
 
