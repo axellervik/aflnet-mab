@@ -3697,7 +3697,8 @@ static u8 run_target(char** argv, u32 timeout) {
 static void write_to_testcase(void* mem, u32 len) {
 
   //AFLNet sends data via network so it does not need this function
-  //Actually it seems ProFuzzBench needs this function so let's add it back:
+  //Actually it seems ProFuzzBench needs this function so let's add it back
+  //Instead remove all calls to it
   s32 fd = out_fd;
 
   if (out_file) {
@@ -3770,7 +3771,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 
     if (!first_run && !(stage_cur % stats_update_freq)) show_stats();
 
-    write_to_testcase(use_mem, q->len);
+    // write_to_testcase(use_mem, q->len);
 
     fault = run_target(argv, use_tmout);
 
@@ -4427,7 +4428,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       if (exec_tmout < hang_tmout) {
 
         u8 new_fault;
-        write_to_testcase(mem, len);
+        // write_to_testcase(mem, len);
         new_fault = run_target(argv, hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
@@ -5752,7 +5753,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
   }
 
   // TODO: try removing, potential time sink, shouldn't be needed
-  write_to_testcase(out_buf, len);
+  // write_to_testcase(out_buf, len);
 
   /* AFLNet update kl_messages linked list */
 
@@ -8089,7 +8090,7 @@ static void sync_fuzzers(char** argv) {
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
-        write_to_testcase(mem, st.st_size);
+        // write_to_testcase(mem, st.st_size);
 
         region_t *regions;
         u32 region_count;
