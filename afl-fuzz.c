@@ -439,6 +439,34 @@ unsigned int* (*extract_response_codes)(unsigned char* buf, unsigned int buf_siz
 region_t* (*extract_requests)(unsigned char* buf, unsigned int buf_size, unsigned int* region_count_ref) = NULL;
 
 
+/* Get unix time in milliseconds */
+
+static u64 get_cur_time(void) {
+
+  struct timeval tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
+
+}
+
+
+/* Get unix time in microseconds */
+
+static u64 get_cur_time_us(void) {
+
+  struct timeval tv;
+  struct timezone tz;
+
+  gettimeofday(&tv, &tz);
+
+  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
+
+}
+
+
 /* Describe integer. Uses 12 cyclic static buffers for return values. The value
    returned should be five characters or less for all the integers we reasonably
    expect to see. */
@@ -1123,7 +1151,7 @@ void exp3_update() {
                 + 0.69 * exp3->state_cov;
                 // + 0.2 * ;
                 
-fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.3 * %lf \n+ 0.7 * %lf \n",
+fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.3 * %d \n+ 0.7 * %d \n",
   reward,
   exp3->code_cov,
   exp3->state_cov
@@ -1619,33 +1647,6 @@ HANDLE_RESPONSES:
   return 0;
 }
 /* End of AFLNet-specific variables & functions */
-
-/* Get unix time in milliseconds */
-
-static u64 get_cur_time(void) {
-
-  struct timeval tv;
-  struct timezone tz;
-
-  gettimeofday(&tv, &tz);
-
-  return (tv.tv_sec * 1000ULL) + (tv.tv_usec / 1000);
-
-}
-
-
-/* Get unix time in microseconds */
-
-static u64 get_cur_time_us(void) {
-
-  struct timeval tv;
-  struct timezone tz;
-
-  gettimeofday(&tv, &tz);
-
-  return (tv.tv_sec * 1000000ULL) + tv.tv_usec;
-
-}
 
 
 /* Generate a random number (from 0 to limit - 1). This may
