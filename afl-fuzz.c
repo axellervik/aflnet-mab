@@ -1060,6 +1060,7 @@ void exp3_compute_probs() {
               exp3->awake[i] + 1,
               exp3->w[exp3->awake[i]],
               exp3->p[exp3->awake[i]]);
+      fflush(exp3_log); // ineffective but otherwise it sometimes prints double for some reason...
   }
 
   if (exp3_log) {
