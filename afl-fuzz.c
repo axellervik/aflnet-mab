@@ -1039,7 +1039,7 @@ void exp3_compute_probs() {
   if (exp3_log)
     fflush(exp3_log);
 
-  if (total <= 0.0) { // avoid division by 0
+  if (total <= 0.0) { // avoid division by 0, should not be possible as all weights > 1.0
     if (exp3_log)
       fprintf(exp3_log, "WARNING: total <= 0.0\n");
     return;
@@ -1062,7 +1062,7 @@ void exp3_compute_probs() {
               exp3->awake[i] + 1,
               exp3->w[exp3->awake[i]],
               exp3->p[exp3->awake[i]]);
-      fflush(exp3_log); // ineffective but otherwise it sometimes prints double for some reason...
+      fflush(exp3_log); // ineffective but otherwise it sometimes prints twice for some reason...
   }
 
   if (exp3_log) {
