@@ -1053,25 +1053,26 @@ int exp3_select() {
     int idx = exp3->awake[i];
     cum += exp3->p[idx];
     if (r <= cum) {
-      exp3->idx = idx;
+      exp3->idx = i;
       fprintf(exp3_log,
-              " | Arm selected: %d [1-indexed]\n",
-              idx+1);
+              " | Arm selected: %d globally, %d among awake\n",
+              idx+1,
+		      i+1);
       fflush(exp3_log);
-      return idx;
+      return i;
     }
   }
 
   if (exp3_log) {
     fprintf(exp3_log,
-            "\n [EXP3] Cummulative selection failed, defaulting to arm %d",
-            exp3->n);
+            "\n [EXP3] Cummulative selection failed, defaulting to arm %d (among awake)",
+            exp3->n_awake);
             fflush(exp3_log);
   }
 
   // fallback:
-  exp3->idx = exp3->n-1;
-  return exp3->n - 1;
+  exp3->idx = exp3->n_awake - 1;
+  return exp3->n_awake - 1;
 }
 
 /* Update weights using importance-weighted reward */
