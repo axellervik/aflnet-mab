@@ -867,8 +867,9 @@ unsigned int choose_target_state(u8 mode) {
 *  Fixed array size with eviction mechanism is alternative if AFLNet throughput improves enough to warrant such a change in the future.
 * Possible optimisation is switching to log space to avoid using exp() each update.
 */
+EXP_ST u64 timer;
 void exp3_init(double gamma, double eta) {
-  u64 t0 = get_cur_time();
+  timer = get_cur_time(); u64 t0 = timer;
 
   if (exp3_log) {
     fprintf(exp3_log, "exp3_init(%lf, %lf) called with current_entry = %d, queued_paths = %d\n", gamma, eta, current_entry, queued_paths);
@@ -926,7 +927,7 @@ void exp3_init(double gamma, double eta) {
 }
 
 static void exp3_free() {
-  u64 t0 = get_cur_time();
+  timer = get_cur_time(); u64 t0 = timer;
   if (!exp3) return;
 
   if (exp3_log) {
@@ -946,7 +947,7 @@ static void exp3_free() {
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
 void exp3_add_arm() {
-  u64 t0 = get_cur_time();
+  timer = get_cur_time(); u64 t0 = timer;
   exp3->n += 1;
 
   if (exp3->n > exp3->capacity) {
@@ -991,7 +992,7 @@ void exp3_add_arm() {
 
 /* Compute probabilities from weights */
 void exp3_compute_probs() {
-  u64 t0 = get_cur_time();
+  timer = get_cur_time(); u64 t0 = timer;
   if (!exp3 || exp3->n == 0) return;
 
   if (exp3_log)
@@ -1041,7 +1042,7 @@ void exp3_compute_probs() {
 
 /* Wake or put arms to sleep based on whether seed traverses target state */
 void exp3_lullaby(state_info_t *state) {
-  u64 t0 = get_cur_time();
+  timer = get_cur_time(); u64 t0 = timer;
   if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
 
   exp3->n_awake = state->seeds_count;
@@ -1060,7 +1061,7 @@ void exp3_lullaby(state_info_t *state) {
 
 /* Arm selection based on probabilities p, based on CDF inversion */
 int exp3_select() {
-  u64 t0 = get_cur_time();
+  timer = get_cur_time(); u64 t0 = timer;
   if (exp3_log) fprintf(exp3_log, "[EXP3] Selecting arm\n");
 
   if (!exp3 || exp3->n == 0) return 0;
