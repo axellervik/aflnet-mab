@@ -308,6 +308,8 @@ typedef struct {
     double *w;            // weights
     double *p;            // probabilities
     int    idx;           // last selected arm
+    u8     code_cov;      // reward calculation
+    u8     state_cov;     // --------||--------
     int    n_awake;       // number of non-sleeping arms
     int    *awake;        // [0..(n_awake-1)] contains index of non-sleeping arms
 } EXP3;
@@ -888,14 +890,16 @@ void exp3_init(double gamma, double eta) {
 
   exp3 = ck_alloc(sizeof(EXP3));
 
-  exp3->n        = 0;
-  exp3->capacity = 1024;
-  exp3->gamma    = gamma;
-  exp3->eta      = eta;
-  exp3->idx      = 0;
-  exp3->w_sum    = 0.0;
-  exp3->w        = ck_alloc(exp3->capacity * sizeof(double));
-  exp3->p        = ck_alloc(exp3->capacity * sizeof(double));
+  exp3->n         = 0;
+  exp3->capacity  = 1024;
+  exp3->gamma     = gamma;
+  exp3->eta       = eta;
+  exp3->idx       = 0;
+  exp3->code_cov  = 0;
+  exp3->state_cov = 0;
+  exp3->w_sum     = 0.0;
+  exp3->w         = ck_alloc(exp3->capacity * sizeof(double));
+  exp3->p         = ck_alloc(exp3->capacity * sizeof(double));
 
   exp3->n_awake  = 0;
   exp3->awake    = ck_alloc(exp3->capacity * sizeof(int));
@@ -1085,13 +1089,21 @@ void exp3_update() {
   // double reward = (double)calculate_score(queue_cur);
   // reward /= (double)100.0;
   // reward *= (double)queue_cur->region_count / (double)max_seed_region_count;
-
+  
   // double reward = 0.5 * (double)(queue_cur->bitmap_size ? 1 : 0)
-  double reward = 0.5 * (double)queue_cur->bitmap_size / (double)total_bitmap_size 
-                + 0.3 * (double)queue_cur->depth / (double)max_depth
-                + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
+  // double reward = 0.5 * (double)queue_cur->bitmap_size / (double)total_bitmap_size 
+  //               + 0.3 * (double)queue_cur->depth / (double)max_depth
+  //               + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
 
-  fprintf(exp3_log, "[EXP3] reward %lf calculated using 0.5 * %lf / %lf + 0.3 * %lf / %lf + 0.2 * %lf / %lf\n",
+  // u8 hnb = has_new_bits(virgin_bits);
+  double reward = 0.31 * exp3->code_cov
+                + 0.69 * exp3->state_cov;
+                // + 0.2 * ;
+  
+  exp3->code_cov = 0;
+  exp3->state_cov = 0;
+
+  fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.5 * %lf / %lf \n+ 0.3 * %lf / %lf \n+ 0.2 * %lf / %lf\n",
           reward,
           (double)queue_cur->bitmap_size,
           (double)total_bitmap_size,
@@ -1115,7 +1127,7 @@ void exp3_update() {
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Updated arm %d (1-idx'd) | Reward: %lf | Old weight: %lf | New weight: %lf | Growth factor: %lf | x_hat: %lf (%lf / %lf)\n",
+          "[EXP3] Updated arm %d (1-idx'd) | Reward: %lf | Weight: %lf -> %lf (growth factor: %lf) | x_hat: %lf (%lf / %lf)\n",
           exp3->idx+1,
           reward,
           old_w,
@@ -1278,6 +1290,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run)
           //Insert this into the state_ids array too
           state_ids = (u32 *) ck_realloc(state_ids, (state_ids_count + 1) * sizeof(u32));
           state_ids[state_ids_count++] = prevStateID;
+
+          if (seed_selection_algo == MAB) exp3->state_cov = 1;
 
           if (prevStateID != 0) expand_was_fuzzed_map(1, 0);
         }
@@ -4357,6 +4371,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     if (hnb == 2) {
       queue_top->has_new_cov = 1;
       queued_with_cov++;
+      if (seed_selection_algo == MAB) exp3->code_cov = 1;
     }
 
     queue_top->exec_cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
@@ -5736,6 +5751,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   }
 
+  // TODO: try removing, potential time sink, shouldn't be needed
   write_to_testcase(out_buf, len);
 
   /* AFLNet update kl_messages linked list */
@@ -7974,9 +7990,6 @@ abandon_entry:
 
 static void sync_fuzzers(char** argv) {
 
-  fprintf(exp3_log, "Entering sync_fuzzers()\n");
-  fflush(exp3_log);
-
   DIR* sd;
   struct dirent* sd_ent;
   u32 sync_cnt = 0;
@@ -9690,10 +9703,6 @@ int main(int argc, char** argv) {
             }
           }
         }
-        
-        if (seed_selection_algo == MAB) {
-          exp3_update();
-        }
       }
       else{
         code_aware_schedule = 1;
@@ -9735,6 +9744,10 @@ int main(int argc, char** argv) {
       }
 
       skipped_fuzz = fuzz_one(use_argv);
+        
+      if (seed_selection_algo == MAB) {
+        exp3_update();
+      }
 
       if (!stop_soon && sync_id && !skipped_fuzz) {
 
@@ -9754,24 +9767,18 @@ int main(int argc, char** argv) {
     }
 
   } else if (seed_schedule_type == IPSM_SCHEDULE){
-  fprintf(exp3_log, "IPSM_SCHEDULE entered\n");
-  fflush(exp3_log);
     code_aware_schedule = 0;
     if (state_ids_count == 0) {
       PFATAL("No server states have been detected. Server responses are likely empty!");
     }
 
     while (1) {
-  fprintf(exp3_log, "while (1) started\n");
-  fflush(exp3_log);
       
       u8 skipped_fuzz;
 
       struct queue_entry *selected_seed = NULL;
       while(!selected_seed || selected_seed->region_count == 0) {
         target_state_id = choose_target_state(state_selection_algo);
-  fprintf(exp3_log, "cull_queue() calledd\n");
-  fflush(exp3_log);
 
         /* Update favorites based on the selected state */
         cull_queue();
@@ -9782,8 +9789,6 @@ int main(int argc, char** argv) {
           kh_val(khms_states, k)->selected_times++;
         }
 
-  fprintf(exp3_log, "choose_seed about to be called\n");
-  fflush(exp3_log);
         selected_seed = choose_seed(target_state_id, seed_selection_algo);
       }
 
@@ -9807,20 +9812,16 @@ int main(int argc, char** argv) {
         }
       }
 
+      skipped_fuzz = fuzz_one(use_argv);
+      
       if (seed_selection_algo == MAB) {
         exp3_update();
       }
 
-      skipped_fuzz = fuzz_one(use_argv);
-
       if (!stop_soon && sync_id && !skipped_fuzz) {
-  fprintf(exp3_log, "!stop_soon && sync_id && !skipped_fuzz\n");
-  fflush(exp3_log);
 
         if (!(sync_interval_cnt++ % SYNC_INTERVAL)) {
 
-  fprintf(exp3_log, "!(sync_interval_cnt++ % SYNC_INTERVAL)\ni.e. calling sync_fuzzers(use_arg)\n");
-  fflush(exp3_log);
           sync_fuzzers(use_argv);
         }
 
@@ -9828,13 +9829,9 @@ int main(int argc, char** argv) {
 
       if (!stop_soon && exit_1) stop_soon = 2;
       if (stop_soon) {
-  fprintf(exp3_log, "stop_soon marked!!!\n");
-  fflush(exp3_log);
 }
       if (stop_soon) break;
     }
-  fprintf(exp3_log, "IPSM_SCHEDULE done\n");
-  fflush(exp3_log);
   }
   else {
     while (1) {
