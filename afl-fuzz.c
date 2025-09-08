@@ -1022,6 +1022,7 @@ void exp3_compute_probs() {
     fflush(exp3_log);
 }
 
+/* Wake or put arms to sleep based on whether seed traverses target state */
 void exp3_lullaby(state_info_t *state) {
   if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
 
@@ -1033,7 +1034,7 @@ void exp3_lullaby(state_info_t *state) {
   }
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] Arms asleep\n");
+    fprintf(exp3_log, "[EXP3] %d arms asleep, %d arms awake\n", (exp3->n - exp3->n_awake), exp3->n_awake);
     fflush(exp3_log);
   }
 }
@@ -1099,20 +1100,22 @@ void exp3_update() {
   double reward = 0.31 * exp3->code_cov
                 + 0.69 * exp3->state_cov;
                 // + 0.2 * ;
-  
-  exp3->code_cov = 0;
-  exp3->state_cov = 0;
-
-  fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.5 * %lf / %lf \n+ 0.3 * %lf / %lf \n+ 0.2 * %lf / %lf\n",
-          reward,
-          (double)queue_cur->bitmap_size,
-          (double)total_bitmap_size,
-          (double)queue_cur->depth,
-          (double)max_depth,
-          (double)queue_cur->unique_state_count,
-          (double)state_ids_count);
-  fflush(exp3_log);
-
+                
+fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.3 * %lf \n+ 0.7 * %lf \n",
+  reward,
+  exp3->code_cov,
+  exp3->state_cov
+  // (double)queue_cur->bitmap_size,
+  // (double)total_bitmap_size,
+  // (double)queue_cur->depth,
+  // (double)max_depth,
+  // (double)queue_cur->unique_state_count,
+  // (double)state_ids_count
+);
+fflush(exp3_log);
+                
+exp3->code_cov = 0;
+exp3->state_cov = 0;
   // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
 
   double x_hat = reward / p;
@@ -1127,7 +1130,7 @@ void exp3_update() {
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Updated arm %d (1-idx'd) | Reward: %lf | Weight: %lf -> %lf (growth factor: %lf) | x_hat: %lf (%lf / %lf)\n",
+          "[EXP3] Updated arm %d (1-idx'd) \n| Reward: %lf \n| Weight: %lf -> %lf (growth factor: %lf) \n| x_hat: %lf (%lf / %lf)\n",
           exp3->idx+1,
           reward,
           old_w,
@@ -1227,7 +1230,7 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
     PFATAL("AFLNet - the states hashtable has no entries for state %d", target_state_id);
   }
 
-  fprintf(exp3_log, "choose_seed() returning with result->index %d\n", result->index);
+  fprintf(exp3_log, "choose_seed() returning with state-local seed index %d\n", result->index+1);
   fflush(exp3_log);
 
   return result;
@@ -3771,7 +3774,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 
     if (!first_run && !(stage_cur % stats_update_freq)) show_stats();
 
-    // write_to_testcase(use_mem, q->len);
+    write_to_testcase(use_mem, q->len);
 
     fault = run_target(argv, use_tmout);
 
@@ -4428,7 +4431,7 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
       if (exec_tmout < hang_tmout) {
 
         u8 new_fault;
-        // write_to_testcase(mem, len);
+        write_to_testcase(mem, len);
         new_fault = run_target(argv, hang_tmout);
 
         /* A corner case that one user reported bumping into: increasing the
@@ -5752,8 +5755,7 @@ EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) {
 
   }
 
-  // TODO: try removing, potential time sink, shouldn't be needed
-  // write_to_testcase(out_buf, len);
+  write_to_testcase(out_buf, len);
 
   /* AFLNet update kl_messages linked list */
 
@@ -8090,7 +8092,7 @@ static void sync_fuzzers(char** argv) {
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
-        // write_to_testcase(mem, st.st_size);
+        write_to_testcase(mem, st.st_size);
 
         region_t *regions;
         u32 region_count;
