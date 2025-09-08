@@ -1016,30 +1016,6 @@ void exp3_compute_probs() {
 
   if (exp3_log)
     fflush(exp3_log);
-
-  // non-sleeping version:
-
-  // double total = 0.0;
-  // for (int i = 0; i < exp3->n; i++) total += exp3->w[i];
-  // if (total <= 0.0) return; // avoid division by 0
-
-  // double exploitation_scale = (1.0 - exp3->gamma) / total;
-  // double exploration_floor = exp3->gamma / (double)exp3->n;
-
-  // if (exp3_log)
-  //   fprintf(exp3_log, "[EXP3] Computed probabilities for %d arms (total weight=%lf):\n",
-  //           exp3->n, 
-  //           total);
-
-  // for (int i = 0; i < exp3->n; i++) {
-  //   exp3->p[i] = exploitation_scale * exp3->w[i] + exploration_floor;
-
-  //   if (exp3_log)
-  //     fprintf(exp3_log, "  Arm %d: weight=%lf, prob=%lf\n",
-  //             i+1,
-  //             exp3->w[i],
-  //             exp3->p[i]);
-  // }
 }
 
 void exp3_lullaby(state_info_t *state) {
