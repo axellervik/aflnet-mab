@@ -1269,7 +1269,7 @@ void exp3ix_init(double theta) {
 
   exp3ix->n_awake  = 0;
   exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(int));
-  
+
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
     fflush(exp3_log);
@@ -1338,7 +1338,7 @@ void exp3ix_add_arm() {
     }
   }
 
-  exp3ix->r[0] = 0.0;
+  exp3ix->r[exp3ix->n-1] = 0.0;
 
   if (!exp3_log) return;
 
