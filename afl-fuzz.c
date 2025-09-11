@@ -1245,6 +1245,11 @@ void exp3ix_init(double theta) {
 
   exp3ix = ck_alloc(sizeof(EXP3_IX));
 
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Pointer allocated\n");
+    fflush(exp3_log);
+  }
+
   exp3ix->n         = 0;
   exp3ix->capacity  = 1024;
   exp3ix->theta     = theta;
@@ -1257,8 +1262,18 @@ void exp3ix_init(double theta) {
   exp3ix->r_sum     = 0.0;
   exp3ix->r         = ck_alloc(exp3ix->capacity * sizeof(double));
 
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] r* allocated\n");
+    fflush(exp3_log);
+  }
+
   exp3ix->n_awake  = 0;
   exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(int));
+  
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] awake* allocated\n");
+    fflush(exp3_log);
+  }
 
   if (!exp3ix->r) PFATAL("Cannot allocate EXP3_IX parameters");
 
