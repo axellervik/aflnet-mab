@@ -1263,7 +1263,7 @@ void exp3ix_init(double theta) {
   exp3ix->r         = ck_alloc(exp3ix->capacity * sizeof(double));
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] r* allocated\n");
+    fprintf(exp3_log, "[EXP3] r* allocated at %p\n", (void*)exp3ix->r);
     fflush(exp3_log);
   }
 
@@ -1272,7 +1272,7 @@ void exp3ix_init(double theta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
-        fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->r: %p\n",
+        fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
             exp3ix->n,
             exp3ix->capacity,
             exp3ix->theta,
