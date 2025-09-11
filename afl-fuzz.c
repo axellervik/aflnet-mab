@@ -1272,6 +1272,15 @@ void exp3ix_init(double theta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
+        fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->r: %p\n",
+            exp3ix->n,
+            exp3ix->capacity,
+            exp3ix->theta,
+            exp3ix->gamma,
+            exp3ix->eta,
+            exp3ix->idx,
+            (void*)exp3ix->r,
+            (void*)exp3ix->awake);
     fflush(exp3_log);
   }
 
@@ -1279,9 +1288,10 @@ void exp3ix_init(double theta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] Successful initialisation to:\n");
-    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p\n",
+    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p\n",
             exp3ix->n,
             exp3ix->capacity,
+            exp3ix->theta,
             exp3ix->gamma,
             exp3ix->eta,
             exp3ix->idx,
