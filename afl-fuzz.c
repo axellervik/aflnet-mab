@@ -1057,12 +1057,13 @@ void exp3_compute_probs() {
 
   for (int i = 0; i < exp3->n_awake; i++) {
     exp3->p[exp3->awake[i]] = exploitation_scale * exp3->w[exp3->awake[i]] + exploration_floor;
-    if (exp3_log)
+    if (exp3_log) {
       fprintf(exp3_log, "  Arm %d: weight=%lf, prob=%lf\n",
               exp3->awake[i] + 1,
               exp3->w[exp3->awake[i]],
               exp3->p[exp3->awake[i]]);
       fflush(exp3_log); // ineffective but otherwise it sometimes prints twice for some reason...
+    }
   }
 
   if (exp3_log) {
@@ -1112,12 +1113,14 @@ int exp3_select() {
     if (r <= cum) {
       exp3->idx = i;
       exp3->prb = exp3->p[idx];
-      fprintf(exp3_log,
-              " | Arm selected: %d globally, %d among awake\n%llu exp3_select()\n",
-              idx+1,
-		          i+1,
-              get_cur_time_us() - t0);
-      fflush(exp3_log);
+      if (exp3_log) {
+        fprintf(exp3_log,
+          " | Arm selected: %d globally, %d among awake\n%llu exp3_select()\n",
+          idx+1,
+          i+1,
+          get_cur_time_us() - t0);
+        fflush(exp3_log);
+      }
       return i;
     }
   }
@@ -1154,22 +1157,24 @@ void exp3_update() {
   double reward = 0.6 * exp3->code_cov
                 + 0.4 * exp3->state_cov;
                 // + 0.2 * ;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.4 * %d \n+ 0.6 * %d \n",
+      reward,
+      exp3->code_cov,
+      exp3->state_cov
+      // (double)queue_cur->bitmap_size,
+      // (double)total_bitmap_size,
+      // (double)queue_cur->depth,
+      // (double)max_depth,
+      // (double)queue_cur->unique_state_count,
+      // (double)state_ids_count
+    );
+    fflush(exp3_log);
+  }
                 
-fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.4 * %d \n+ 0.6 * %d \n",
-  reward,
-  exp3->code_cov,
-  exp3->state_cov
-  // (double)queue_cur->bitmap_size,
-  // (double)total_bitmap_size,
-  // (double)queue_cur->depth,
-  // (double)max_depth,
-  // (double)queue_cur->unique_state_count,
-  // (double)state_ids_count
-);
-fflush(exp3_log);
-                
-exp3->code_cov = 0;
-exp3->state_cov = 0;
+  exp3->code_cov = 0;
+  exp3->state_cov = 0;
   // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
 
   double x_hat = reward / exp3->prb;
@@ -1197,9 +1202,6 @@ exp3->state_cov = 0;
 /* Select a seed to exercise the target state */
 struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
 {
-  fprintf(exp3_log, "choose_seed() entered\n");
-  fflush(exp3_log);
-
   khint_t k;
   state_info_t *state;
   struct queue_entry *result = NULL;
@@ -1209,8 +1211,6 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
     state = kh_val(khms_states, k);
 
     if (state->seeds_count == 0) {
-  fprintf(exp3_log, "state->seeds_count == 0, returning NULL\n");
-  fflush(exp3_log);
       return NULL;
     }
 
@@ -1271,8 +1271,10 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
         }
         break;
       case MAB:
-      fprintf(exp3_log, "Targetting state %d with seeds_count %d\n", state->id, state->seeds_count);
-      fflush(exp3_log);
+        if (exp3_log) {
+          fprintf(exp3_log, "Targetting state %d with seeds_count %d\n", state->id, state->seeds_count);
+          fflush(exp3_log);
+        }
         exp3_lullaby(state);
         state->selected_seed_index = exp3_select();
         result = state->seeds[state->selected_seed_index];
@@ -1283,9 +1285,6 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
   } else {
     PFATAL("AFLNet - the states hashtable has no entries for state %d", target_state_id);
   }
-
-  fprintf(exp3_log, "choose_seed() returning with state-local seed index %d\n", result->index+1);
-  fflush(exp3_log);
 
   return result;
 }
