@@ -313,9 +313,28 @@ typedef struct {
     u8     state_cov;     // --------||--------
     int    n_awake;       // number of non-sleeping arms
     int    *awake;        // [0..(n_awake-1)] contains index of non-sleeping arms
-} EXP3;
+} struct_EXP3;
 
-static EXP3* exp3; /* Globally available EXP3 scheduler */
+/* MAB selection using EXP3-IX */
+typedef struct {
+    int    n;             // current active arms
+    int    capacity;      // allocated capacity
+    double theta;         // tuning parameter
+    double gamma;         // exploration rate
+    double eta;           // learning rate
+    double r_sum;         // sum of weights
+    double *r;            // accumulative rewards
+    int    idx;           // last selected arm
+    double prb;           // probability of last selected arm
+    u8     code_cov;      // reward calculation
+    u8     state_cov;     // --------||--------
+    int    n_awake;       // number of non-sleeping arms
+    int    *awake;        // [0..(n_awake-1)] contains index of non-sleeping arms
+} struct_EXP3_IX;
+
+static struct_EXP3* exp3; /* Globally available EXP3 scheduler */
+static struct_EXP3_IX* exp3ix; /* Globally available EXP3-IX scheduler */
+static double exp3_theta = 0.2; // exploration rate
 static double exp3_gamma = 0.2; // exploration rate
 static double exp3_eta = 0.2;   // learning rate
 static FILE *exp3_log = NULL;
@@ -414,7 +433,7 @@ u8 terminate_child = 0;
 u8 corpus_read_or_sync = 0;
 u8 state_aware_mode = 0;
 u8 region_level_mutation = 0;
-u8 state_selection_algo = ROUND_ROBIN, seed_selection_algo = MAB; //, seed_selection_algo = RANDOM_SELECTION;
+u8 state_selection_algo = ROUND_ROBIN, seed_selection_algo = EXP3_IX; //, seed_selection_algo = RANDOM_SELECTION;
 u8 feedback_type = CODE_FEEDBACK;   /* Select interesting seeds based on code feedback */
 u8 seed_schedule_type = IPSM_SCHEDULE; /* Choose next seeds based on state machine */
 u8 code_aware_schedule = 0;
@@ -1139,6 +1158,7 @@ int exp3_select() {
 
 /* Update weights using importance-weighted reward */
 void exp3_update() {
+  timer = get_cur_time_us(); u64 t0 = timer;
   if (!exp3 || exp3->n == 0 || exp3->n <= exp3->idx) return;
 
   // double p = exp3->p[exp3->idx];
@@ -1196,6 +1216,233 @@ void exp3_update() {
           exp3->w[exp3->idx],
           growth,
           x_hat, reward, exp3->prb);
+  fprintf(exp3_log, "%llu µs exp3_update()\n", get_cur_time_us() - t0); 
+  fflush(exp3_log);
+}
+
+
+void exp3ix_init(double theta) {
+  timer = get_cur_time_us(); u64 t0 = timer;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "exp3ix_init(%lf) called with current_entry = %d, queued_paths = %d\n", theta, current_entry, queued_paths);
+    fflush(exp3_log);
+  }
+
+  if (exp3ix) return;
+
+  if (!exp3_log) {
+    exp3_log = fopen("../../exp3.log", "a");
+    if (!exp3_log) PFATAL("Cannot open exp3.log for writing");
+    fprintf(exp3_log, "Log created, initialising EXP3\n");
+    fflush(exp3_log);
+  }
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Initialising\n");
+    fflush(exp3_log);
+  }
+
+  exp3ix = ck_alloc(sizeof(EXP3_IX));
+
+  exp3ix->n         = 0;
+  exp3ix->capacity  = 1024;
+  exp3ix->theta     = theta;
+  exp3ix->eta       = 0.0; // undef when n = 0
+  exp3ix->gamma     = 0.0; // undef when n = 0
+  exp3ix->idx       = 0;
+  exp3ix->prb       = 0.0;
+  exp3ix->code_cov  = 0;
+  exp3ix->state_cov = 0;
+  exp3ix->r_sum     = 0.0;
+  exp3ix->r         = ck_alloc(exp3ix->capacity * sizeof(double));
+
+  exp3ix->n_awake  = 0;
+  exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(int));
+
+  if (!exp3ix->r) PFATAL("Cannot allocate EXP3_IX parameters");
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Successful initialisation to:\n");
+    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p\n",
+            exp3ix->n,
+            exp3ix->capacity,
+            exp3ix->gamma,
+            exp3ix->eta,
+            exp3ix->idx,
+            (void*)exp3ix->r);
+
+    fprintf(exp3_log, "%llu µs exp3_init()\n", get_cur_time_us() - t0);
+    fflush(exp3_log);
+  }
+
+  return;
+}
+
+static void exp3ix_free() {
+  timer = get_cur_time_us(); u64 t0 = timer;
+  if (!exp3ix) return;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "Freeing EXP3\n");
+    fflush(exp3_log);
+  }
+  
+  ck_free(exp3ix->r);
+  ck_free(exp3ix->awake);
+  ck_free(exp3ix);
+
+  if (exp3_log) {
+    fprintf(exp3_log, "%llu µs exp3_free()\n", get_cur_time_us() - t0); 
+    fflush(exp3_log);
+  }
+}
+
+/* Add arm to Bandit, geometric growth of arrays if capacity met */
+void exp3ix_add_arm() {
+  timer = get_cur_time_us(); u64 t0 = timer;
+  exp3ix->n += 1;
+
+  if (exp3ix->n > exp3ix->capacity) {
+    if (exp3_log) {
+      fprintf(exp3_log,
+              "[EXP3] Max capacity reached, reallocating from %d to %d capacity\n",
+              exp3ix->capacity,
+              exp3ix->capacity * 2);
+      fflush(exp3_log);
+    }
+
+    exp3ix->capacity *= 2;
+    exp3ix->r = ck_realloc(exp3ix->r, exp3ix->capacity * sizeof(double));
+    exp3ix->awake = ck_realloc(exp3ix->awake, exp3ix->capacity * sizeof(int));
+    if (!exp3ix->r || !exp3ix->awake) PFATAL("Cannot grow EXP3 arms");
+
+    if(exp3_log) {
+      fprintf(exp3_log, "[EXP3] Reallocation successful\n");
+      fflush(exp3_log);
+    }
+  }
+
+  exp3ix->r[0] = 0.0;
+
+  if (!exp3_log) return;
+
+  fprintf(exp3_log,
+          "[EXP3] Added arm %d\n",
+          exp3->n);
+  
+  fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
+  fflush(exp3_log);
+}
+
+/* Wake or put arms to sleep based on whether seed traverses target state */
+void exp3ix_lullaby(state_info_t *state) {
+  timer = get_cur_time_us(); u64 t0 = timer;
+  if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
+
+  exp3ix->n_awake = state->seeds_count;
+  exp3ix->r_sum = 0.0;
+
+  exp3ix->eta = exp3ix->theta * sqrt(2.0 * log((double)exp3ix->n_awake) / exp3ix->n_awake);
+  exp3ix->gamma = exp3ix->eta / 2.0;
+
+  for (int i = 0; i < exp3ix->n_awake; i++) {
+    struct queue_entry *q = (struct queue_entry *) state->seeds[i];
+    exp3ix->awake[i] = q->index;
+    exp3ix->r_sum += exp(exp3ix->eta * exp3ix->r[q->index]);
+  }
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] %d arms asleep, %d arms awake, r_sum = %lf\n", (exp3ix->n - exp3ix->n_awake), exp3ix->n_awake, exp3ix->r_sum);
+    fprintf(exp3_log, "%llu µs exp3_lullaby()\n", get_cur_time_us() - t0);
+    fflush(exp3_log);
+  }
+}
+
+/* Arm selection based on probabilities p, based on CDF inversion */
+int exp3ix_select() {
+  timer = get_cur_time_us(); u64 t0 = timer;
+  if (exp3_log) fprintf(exp3_log, "[EXP3] Selecting arm\n");
+
+  if (!exp3ix || exp3ix->n == 0) return 0;
+
+  double r = exp3ix->r_sum * (double)rand() / RAND_MAX;
+  if (exp3_log) fprintf(exp3_log,
+                        " | r_sum * (double)rand() / RAND_MAX yielded: %lf",
+                        r);
+
+  double cum = 0.0;
+  for (int i = 0; i < exp3ix->n_awake; i++) {
+    int idx = exp3ix->awake[i];
+    cum += exp(exp3ix->eta * exp3ix->r[idx]);
+    if (r <= cum) {
+      exp3ix->idx = i;
+      // exp3ix->prb = exp3ix->p[idx];
+      if (exp3_log) {
+        fprintf(exp3_log,
+          " | Arm selected: %d globally, %d among awake\n%llu µs exp3_select()\n",
+          idx+1,
+          i+1,
+          get_cur_time_us() - t0);
+        fflush(exp3_log);
+      }
+      return i;
+    }
+  }
+
+  if (exp3_log) {
+    fprintf(exp3_log,
+            "\n [EXP3] Cummulative selection failed, defaulting to arm %d (among awake)",
+            exp3ix->n_awake);
+            fflush(exp3_log);
+  }
+
+  // fallback:
+  exp3ix->idx = exp3ix->n_awake - 1;
+  return exp3ix->n_awake - 1;
+}
+
+/* Update weights using importance-weighted reward */
+void exp3ix_update() {
+  timer = get_cur_time_us(); u64 t0 = timer;
+  if (!exp3 || exp3ix->n == 0 || exp3ix->n <= exp3ix->idx) return;
+
+  // double p = exp3->p[exp3->idx];
+  if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
+
+  // u8 hnb = has_new_bits(virgin_bits);
+  double reward = 0.6 * exp3ix->code_cov
+                + 0.4 * exp3ix->state_cov;
+                // + 0.2 * ;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.4 * %d \n+ 0.6 * %d \n",
+      reward,
+      exp3ix->code_cov,
+      exp3ix->state_cov
+    );
+    fflush(exp3_log);
+  }
+                
+  exp3ix->code_cov = 0;
+  exp3ix->state_cov = 0;
+  // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
+
+  double p = exp(exp3ix->eta * exp3ix->r[exp3ix->idx]) / exp3ix->r_sum;
+
+  double old_r = exp3ix->r[exp3ix->idx];
+  exp3ix->r[exp3ix->idx] += reward / (p + exp3ix->gamma);
+
+  if (!exp3_log) return;
+
+  fprintf(exp3_log,
+          "[EXP3] Updated arm %d (1-idx'd) \n| Reward: %lf \n| Accumulated reward: %lf -> %lf \n| growth: %lf (= %lf / (%lf + %lf))\n",
+          exp3ix->idx+1,
+          reward,
+          old_r,
+          exp3ix->r[exp3->idx],
+          reward / (p + exp3ix->gamma), 
+          reward, p, exp3->gamma);
   fprintf(exp3_log, "%llu µs exp3_update()\n", get_cur_time_us() - t0); 
   fflush(exp3_log);
 }
@@ -1271,13 +1518,22 @@ struct queue_entry *choose_seed(u32 target_state_id, u8 mode)
           if (state->selected_seed_index == state->seeds_count) state->selected_seed_index = 0;
         }
         break;
-      case MAB:
+      case EXP3:
         if (exp3_log) {
           fprintf(exp3_log, "Targetting state %d with seeds_count %d\n", state->id, state->seeds_count);
           fflush(exp3_log);
         }
         exp3_lullaby(state);
         state->selected_seed_index = exp3_select();
+        result = state->seeds[state->selected_seed_index];
+        break;
+      case EXP3_IX:
+        if (exp3_log) {
+          fprintf(exp3_log, "Targetting state %d with seeds_count %d\n", state->id, state->seeds_count);
+          fflush(exp3_log);
+        }
+        exp3ix_lullaby(state);
+        state->selected_seed_index = exp3ix_select();
         result = state->seeds[state->selected_seed_index];
         break;
       default:
@@ -1348,7 +1604,8 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run)
           state_ids = (u32 *) ck_realloc(state_ids, (state_ids_count + 1) * sizeof(u32));
           state_ids[state_ids_count++] = prevStateID;
 
-          if (seed_selection_algo == MAB) exp3->state_cov = 1;
+          if (seed_selection_algo == EXP3) exp3->state_cov = 1;
+          else if (seed_selection_algo == EXP3_IX)exp3ix->state_cov = 1;
 
           if (prevStateID != 0) expand_was_fuzzed_map(1, 0);
         }
@@ -1958,8 +2215,10 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
   }
 
   /* MAB */
-  if (seed_selection_algo == MAB) {
+  if (seed_selection_algo == EXP3) {
     exp3_add_arm();
+  } else if (seed_selection_algo == EXP3_IX) {
+    exp3ix_add_arm();
   }
 
   /* AFLNet: extract regions keeping client requests if needed */
@@ -4402,7 +4661,8 @@ static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) {
     if (hnb == 2) {
       queue_top->has_new_cov = 1;
       queued_with_cov++;
-      if (seed_selection_algo == MAB) exp3->code_cov = 1;
+      if (seed_selection_algo == EXP3) exp3->code_cov = 1;
+      else if (seed_selection_algo == EXP3_IX) exp3ix->code_cov = 1;
     }
 
     queue_top->exec_cksum = hash32(trace_bits, MAP_SIZE, HASH_CONST);
@@ -9497,13 +9757,18 @@ int main(int argc, char** argv) {
         break;
       
       case 'X': // exploration rate
-        if (seed_selection_algo != MAB) FATAL("-X (exploration rate) only supported in MAB seed selection mode");
+        if (seed_selection_algo != EXP3) FATAL("-X (exploration rate) only supported in EXP3 seed selection mode");
         if (sscanf(optarg, "%lf", &exp3_gamma) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -X");
         break;
       
       case 'L': // learning rate
-        if (seed_selection_algo != MAB) FATAL("-L (learning rate) only supported in MAB seed selection mode");
+        if (seed_selection_algo != EXP3) FATAL("-L (learning rate) only supported in EXP3 seed selection mode");
         if (sscanf(optarg, "%lf", &exp3_eta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -L");
+        break;
+
+      case 'Y': // tuning parameter (theta)
+        if (seed_selection_algo != EXP3_IX) FATAL("-Y (tuning parameter) only supported in EXP3_IX seed selection mode");
+        if (sscanf(optarg, "%lf", &exp3_theta) < 1 || optarg[0] == '-') FATAL("Bad syntax used for -Y");
         break;
       
       case 'b': /* feedback type */
@@ -9548,8 +9813,10 @@ int main(int argc, char** argv) {
   if (optind == argc || !in_dir || !out_dir) usage(argv[0]);
 
   /* MAB setup */
-  if (seed_selection_algo == MAB) {
+  if (seed_selection_algo == EXP3) {
     exp3_init(exp3_gamma, exp3_eta);
+  } else if (seed_selection_algo == EXP3_IX) {
+    exp3ix_init(exp3_theta);
   }
 
   //AFLNet - Check for required arguments
@@ -9775,8 +10042,10 @@ int main(int argc, char** argv) {
 
       skipped_fuzz = fuzz_one(use_argv);
         
-      if (seed_selection_algo == MAB) {
+      if (seed_selection_algo == EXP3) {
         exp3_update();
+      } else if (seed_selection_algo == EXP3_IX) {
+        exp3ix_update();
       }
 
       if (!stop_soon && sync_id && !skipped_fuzz) {
@@ -9844,8 +10113,10 @@ int main(int argc, char** argv) {
 
       skipped_fuzz = fuzz_one(use_argv);
       
-      if (seed_selection_algo == MAB) {
+      if (seed_selection_algo == EXP3) {
         exp3_update();
+      } else if (seed_selection_algo == EXP3_IX) {
+        exp3ix_update();
       }
 
       if (!stop_soon && sync_id && !skipped_fuzz) {
@@ -9962,9 +10233,12 @@ stop_fuzzing:
   ck_free(target_path);
   ck_free(sync_id);
 
-  if (seed_selection_algo == MAB) {
+  if (seed_selection_algo == EXP3) {
     exp3_free();
     exp3 = NULL;
+  } else if (seed_selection_algo == EXP3_IX) {
+    exp3ix_free();
+    exp3ix = NULL;
   }
   if (exp3_log) {
     fclose(exp3_log);

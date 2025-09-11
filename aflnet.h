@@ -42,7 +42,8 @@ enum {
   /* 01 */ RANDOM_SELECTION,
   /* 02 */ ROUND_ROBIN,
   /* 03 */ FAVOR,
-  /* 04 */ MAB
+  /* 04 */ EXP3,
+  /* 05 */ EXP3_IX
 };
 
 enum {
