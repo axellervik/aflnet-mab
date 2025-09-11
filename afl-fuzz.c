@@ -949,7 +949,7 @@ void exp3_init(double gamma, double eta) {
             (void*)exp3->w,
             (void*)exp3->p);
 
-    fprintf(exp3_log, "%llu exp3_init()\n", get_cur_time_us() - t0);
+    fprintf(exp3_log, "%llu µs exp3_init()\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 
@@ -970,7 +970,7 @@ static void exp3_free() {
   ck_free(exp3);
 
   if (exp3_log) {
-    fprintf(exp3_log, "%llu exp3_free()\n", get_cur_time_us() - t0); 
+    fprintf(exp3_log, "%llu µs exp3_free()\n", get_cur_time_us() - t0); 
     fflush(exp3_log);
   }
 }
@@ -1016,7 +1016,7 @@ void exp3_add_arm() {
           exp3->n,
           exp3->w[exp3->n-1]);
   
-  fprintf(exp3_log, "%llu exp3_add_arm()\n", get_cur_time_us() - t0);
+  fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
   fflush(exp3_log);
 }
 
@@ -1067,7 +1067,7 @@ void exp3_compute_probs() {
   }
 
   if (exp3_log) {
-    fprintf(exp3_log, "%llu exp3_compute_probs()\n", get_cur_time_us() - t0);
+    fprintf(exp3_log, "%llu µs exp3_compute_probs()\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 }
@@ -1086,7 +1086,7 @@ void exp3_lullaby(state_info_t *state) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] %d arms asleep, %d arms awake\n", (exp3->n - exp3->n_awake), exp3->n_awake);
-    fprintf(exp3_log, "%llu exp3_lullaby()\n", get_cur_time_us() - t0);
+    fprintf(exp3_log, "%llu µs exp3_lullaby()\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 }
@@ -1115,7 +1115,7 @@ int exp3_select() {
       exp3->prb = exp3->p[idx];
       if (exp3_log) {
         fprintf(exp3_log,
-          " | Arm selected: %d globally, %d among awake\n%llu exp3_select()\n",
+          " | Arm selected: %d globally, %d among awake\n%llu µs exp3_select()\n",
           idx+1,
           i+1,
           get_cur_time_us() - t0);
@@ -1196,6 +1196,7 @@ void exp3_update() {
           exp3->w[exp3->idx],
           growth,
           x_hat, reward, exp3->prb);
+  fprintf(exp3_log, "%llu µs exp3_update()\n", get_cur_time_us() - t0); 
   fflush(exp3_log);
 }
 
