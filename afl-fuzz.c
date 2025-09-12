@@ -1368,7 +1368,10 @@ void exp3ix_add_arm() {
 /* Wake or put arms to sleep based on whether seed traverses target state */
 void exp3ix_lullaby(state_info_t *state) {
   timer = get_cur_time_us(); u64 t0 = timer;
-  if (exp3_log) fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Putting arms to sleep\n");
+    fflush(exp3_log);
+  }
 
   exp3ix->n_awake = state->seeds_count;
   exp3ix->r_sum = 0.0;
@@ -1435,6 +1438,12 @@ int exp3ix_select() {
 /* Update weights using importance-weighted reward */
 void exp3ix_update() {
   timer = get_cur_time_us(); u64 t0 = timer;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] exp3_update() called with r_sum = %lf\n", exp3ix->r_sum);
+    fflush(exp3_log);
+  }
+
   if (!exp3 || exp3ix->n == 0 || exp3ix->n <= exp3ix->idx) return;
 
   // double p = exp3->p[exp3->idx];
