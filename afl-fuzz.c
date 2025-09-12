@@ -1225,7 +1225,7 @@ void exp3ix_init(double theta) {
   timer = get_cur_time_us(); u64 t0 = timer;
 
   if (exp3_log) {
-    fprintf(exp3_log, "exp3ix_init(%lf) called with current_entry = %d, queued_paths = %d\n", theta, current_entry, queued_paths);
+    fprintf(exp3_log, "exp3ix_init(%lf) called despite already initialised. current_entry = %d, queued_paths = %d\n", theta, current_entry, queued_paths);
     fflush(exp3_log);
   }
 
@@ -1264,15 +1264,20 @@ void exp3ix_init(double theta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] r* allocated at %p\n", (void*)exp3ix->r);
+    fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->r = ck_alloc(exp3ix->capacity * sizeof(double));\n", get_cur_time_us() - t0);
     fflush(exp3_log);
   }
 
   exp3ix->n_awake  = 0;
+  fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->n_awake = 0;\n", get_cur_time_us() - t0);
+  fflush(exp3_log);
   exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(int));
+  fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->awake = ck_alloc(exp3ix->capacity * sizeof(int));\n", get_cur_time_us() - t0);
+  fflush(exp3_log);
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
-        fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
+      fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
             exp3ix->n,
             exp3ix->capacity,
             exp3ix->theta,
