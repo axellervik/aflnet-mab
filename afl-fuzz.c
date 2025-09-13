@@ -329,7 +329,7 @@ typedef struct {
     u8     code_cov;      // reward calculation
     u8     state_cov;     // --------||--------
     int    n_awake;       // number of non-sleeping arms
-    u8     *awake;        // [0..(n_awake-1)] contains index of non-sleeping arms
+    int    *awake;        // [0..(n_awake-1)] contains index of non-sleeping arms
 } struct_EXP3_IX;
 
 static struct_EXP3* exp3; /* Globally available EXP3 scheduler */
@@ -938,7 +938,7 @@ void exp3_init(double gamma, double eta) {
     fflush(exp3_log);
   }
 
-  exp3 = ck_alloc(sizeof(EXP3));
+  exp3 = ck_alloc(sizeof(struct_EXP3));
 
   exp3->n         = 0;
   exp3->capacity  = 1024;
@@ -1271,7 +1271,7 @@ void exp3ix_init(double theta) {
   exp3ix->n_awake  = 0;
   fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->n_awake = 0;\n", get_cur_time_us() - t0);
   fflush(exp3_log);
-  exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(u8));
+  exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(int));
   fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->awake = ck_alloc(exp3ix->capacity * sizeof(int));\n", get_cur_time_us() - t0);
   fflush(exp3_log);
 
