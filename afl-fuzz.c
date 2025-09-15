@@ -1262,15 +1262,15 @@ void exp3ix_init(double theta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
-      fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
-            exp3ix->n,
-            exp3ix->capacity,
-            exp3ix->theta,
-            exp3ix->gamma,
-            exp3ix->eta,
-            exp3ix->idx,
-            (void*)exp3ix->r,
-            (void*)exp3ix->awake);
+    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
+          exp3ix->n,
+          exp3ix->capacity,
+          exp3ix->theta,
+          exp3ix->gamma,
+          exp3ix->eta,
+          exp3ix->idx,
+          (void*)exp3ix->r,
+          (void*)exp3ix->awake);
     fflush(exp3_log);
   }
 
@@ -1342,14 +1342,14 @@ void exp3ix_add_arm() {
 
   if (!exp3_log) return;
 
-  fprintf(exp3_log,
-          "[EXP3] Added arm %d, r[%d-1]:%lf\n",
-          exp3ix->n,
-          exp3ix->n,
-          exp3ix->r[exp3ix->n-1]);
-  
-  fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
-  fflush(exp3_log);
+  // fprintf(exp3_log,
+  //         "[EXP3] Added arm %d, r[%d-1]: %lf\n",
+  //         exp3ix->n,
+  //         exp3ix->n,
+  //         exp3ix->r[exp3ix->n-1]);
+  // 
+  // fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
+  // fflush(exp3_log);
 }
 
 /* Wake or put arms to sleep based on whether seed traverses target state */
@@ -1363,13 +1363,22 @@ void exp3ix_lullaby(state_info_t *state) {
   exp3ix->n_awake = state->seeds_count;
   exp3ix->r_sum = 0.0;
 
-  exp3ix->eta = exp3ix->theta * sqrt(2.0 * log((double)exp3ix->n_awake) / exp3ix->n_awake);
+  exp3ix->eta = exp3ix->theta * sqrt(2.0 * log((double)exp3ix->n_awake) / (double)exp3ix->n_awake);
   exp3ix->gamma = exp3ix->eta / 2.0;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Eta: %lf | Gamma: %lf\n", exp3ix->eta, exp3ix->gamma);
+    fflush(exp3_log);
+  }
 
   for (int i = 0; i < exp3ix->n_awake; i++) {
     struct queue_entry *q = (struct queue_entry *) state->seeds[i];
     exp3ix->awake[i] = q->index;
     exp3ix->r_sum += exp(exp3ix->eta * exp3ix->r[q->index]);
+    if (exp3_log && exp3ix->r[q->index] > 0.0) {
+      fprintf(exp3_log, "Arm %d has accumulated reward %lf\n", q->index+1, r[q->index]);
+      fflush(exp3_log);
+    }
   }
 
   if (exp3_log) {
@@ -9925,25 +9934,8 @@ int main(int argc, char** argv) {
 
   init_message_code_map();
 
-  if (exp3_log) {
-    fprintf(exp3_log, "hello\n");
-    fflush(exp3_log);
-  }
-
-  if (exp3_log) {
-    fprintf(exp3_log, "setting up dirs fds\n");
-    fflush(exp3_log);
-  }
   setup_dirs_fds();
-  if (exp3_log) {
-    fprintf(exp3_log, "reading testcases\n");
-    fflush(exp3_log);
-  }
   read_testcases();
-  if (exp3_log) {
-    fprintf(exp3_log, "loading auto\n");
-    fflush(exp3_log);
-  }
   load_auto();
 
   if (exp3_log) {
