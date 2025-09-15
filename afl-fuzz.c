@@ -1434,7 +1434,7 @@ void exp3ix_update() {
   if (!exp3 || exp3ix->n == 0 || exp3ix->n <= exp3ix->idx) return;
 
   // double p = exp3->p[exp3->idx];
-  if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
+  // if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
 
   // u8 hnb = has_new_bits(virgin_bits);
   double reward = 0.6 * exp3ix->code_cov
