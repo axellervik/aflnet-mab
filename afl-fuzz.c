@@ -1338,13 +1338,15 @@ void exp3ix_add_arm() {
     }
   }
 
-  exp3ix->r[exp3ix->n-1] = 0.0;
+  // exp3ix->r[exp3ix->n-1] = 0.0;
 
   if (!exp3_log) return;
 
   fprintf(exp3_log,
-          "[EXP3] Added arm %d\n",
-          exp3->n);
+          "[EXP3] Added arm %d, r[%d-1]:%lf\n",
+          exp3ix->n,
+          exp3ix->n,
+          exp3ix->r[exp3ix->n-1]);
   
   fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
   fflush(exp3_log);
@@ -2236,11 +2238,6 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
     q_prev100->next_100 = q;
     q_prev100 = q;
 
-  }
-
-  if (exp3_log) {
-    fprintf(exp3_log, "adding arm\n");
-    fflush(exp3_log);
   }
 
   /* MAB */
