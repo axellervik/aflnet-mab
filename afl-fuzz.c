@@ -1245,11 +1245,6 @@ void exp3ix_init(double theta) {
 
   exp3ix = ck_alloc(sizeof(struct_EXP3_IX));
 
-  if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] Pointer allocated\n");
-    fflush(exp3_log);
-  }
-
   exp3ix->n         = 0;
   exp3ix->capacity  = 1024;
   exp3ix->theta     = theta;
@@ -1262,18 +1257,8 @@ void exp3ix_init(double theta) {
   exp3ix->r_sum     = 0.0;
   exp3ix->r         = ck_alloc(exp3ix->capacity * sizeof(double));
 
-  if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] r* allocated at %p\n", (void*)exp3ix->r);
-    fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->r = ck_alloc(exp3ix->capacity * sizeof(double));\n", get_cur_time_us() - t0);
-    fflush(exp3_log);
-  }
-
   exp3ix->n_awake  = 0;
-  fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->n_awake = 0;\n", get_cur_time_us() - t0);
-  fflush(exp3_log);
   exp3ix->awake    = ck_alloc(exp3ix->capacity * sizeof(int));
-  fprintf(exp3_log, "%llu µs exp3_init(): exp3ix->awake = ck_alloc(exp3ix->capacity * sizeof(int));\n", get_cur_time_us() - t0);
-  fflush(exp3_log);
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
@@ -9959,7 +9944,17 @@ int main(int argc, char** argv) {
   else
     use_argv = argv + optind;
 
+  if (exp3_log) {
+    fprintf(exp3_log, "Dry run time\n");
+    fflush(exp3_log);
+  }
+
   perform_dry_run(use_argv);
+
+  if (exp3_log) {
+    fprintf(exp3_log, "Dry run donezo\n");
+    fflush(exp3_log);
+  }
 
   cull_queue();
 
