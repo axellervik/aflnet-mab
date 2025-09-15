@@ -9846,7 +9846,17 @@ int main(int argc, char** argv) {
   //AFLNet - Check for required arguments
   if (!use_net) FATAL("Please specify network information of the server under test (e.g., tcp://127.0.0.1/8554)");
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (!protocol_selected) FATAL("Please specify the protocol to be tested using the -P option");
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   if (netns_name) {
     if (check_ep_capability(CAP_SYS_ADMIN, argv[0]) != 0)
@@ -9855,16 +9865,46 @@ int main(int argc, char** argv) {
             "afl-fuzz with sudo or by \"$ setcap cap_sys_admin+ep /path/to/afl-fuzz\".", netns_name);
   }
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (feedback_type > 1 && !state_aware_mode) 
     FATAL("Feedback type %d is only supported in state-aware mode", feedback_type);
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
   
   if (seed_schedule_type > 1 && !state_aware_mode) 
     FATAL("Seed schedule %d is only supported in state-aware mode", seed_schedule_type);
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   setup_signal_handlers();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
   check_asan_opts();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (sync_id) fix_up_sync();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   if (!strcmp(in_dir, out_dir))
     FATAL("Input and output directories can't be the same");
@@ -9876,35 +9916,85 @@ int main(int argc, char** argv) {
 
   }
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (getenv("AFL_NO_FORKSRV"))    no_forkserver    = 1;
   if (getenv("AFL_NO_CPU_RED"))    no_cpu_meter_red = 1;
   if (getenv("AFL_NO_ARITH"))      no_arith         = 1;
   if (getenv("AFL_SHUFFLE_QUEUE")) shuffle_queue    = 1;
   if (getenv("AFL_FAST_CAL"))      fast_cal         = 1;
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (getenv("AFL_HANG_TMOUT")) {
     hang_tmout = atoi(getenv("AFL_HANG_TMOUT"));
     if (!hang_tmout) FATAL("Invalid value of AFL_HANG_TMOUT");
   }
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (dumb_mode == 2 && no_forkserver)
     FATAL("AFL_DUMB_FORKSRV and AFL_NO_FORKSRV are mutually exclusive");
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   if (getenv("AFL_PRELOAD")) {
     setenv("LD_PRELOAD", getenv("AFL_PRELOAD"), 1);
     setenv("DYLD_INSERT_LIBRARIES", getenv("AFL_PRELOAD"), 1);
   }
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   if (getenv("AFL_LD_PRELOAD"))
     FATAL("Use AFL_PRELOAD instead of AFL_LD_PRELOAD");
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   save_cmdline(argc, argv);
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   fix_up_banner(argv[optind]);
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   check_if_tty();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   get_core_count();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
 #ifdef HAVE_AFFINITY
   bind_to_free_cpu();
@@ -9913,23 +10003,58 @@ int main(int argc, char** argv) {
   check_crash_handling();
   check_cpu_governor();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   setup_post();
   setup_shm();
   init_count_class16();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   setup_ipsm();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   init_message_code_map();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   setup_dirs_fds();
   read_testcases();
   load_auto();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
+
   pivot_inputs();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   if (extras_dir) load_extras(extras_dir);
 
   if (!timeout_given) find_timeout();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "hello\n");
+    fflush(exp3_log);
+  }
 
   detect_file_args(argv + optind + 1);
 
@@ -9938,6 +10063,11 @@ int main(int argc, char** argv) {
   check_binary(argv[optind]);
 
   start_time = get_cur_time();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "start time hello\n");
+    fflush(exp3_log);
+  }
 
   if (qemu_mode)
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
