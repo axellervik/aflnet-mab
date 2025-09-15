@@ -1315,7 +1315,7 @@ static void exp3ix_free() {
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
 void exp3ix_add_arm() {
-  timer = get_cur_time_us(); u64 t0 = timer;
+  // timer = get_cur_time_us(); u64 t0 = timer;
   exp3ix->n += 1;
 
   if (exp3ix->n > exp3ix->capacity) {
@@ -1376,7 +1376,7 @@ void exp3ix_lullaby(state_info_t *state) {
     exp3ix->awake[i] = q->index;
     exp3ix->r_sum += exp(exp3ix->eta * exp3ix->r[q->index]);
     if (exp3_log && exp3ix->r[q->index] > 0.0) {
-      fprintf(exp3_log, "Arm %d has accumulated reward %lf\n", q->index+1, r[q->index]);
+      fprintf(exp3_log, "Arm %d has accumulated reward %lf\n", q->index+1, exp3ix->r[q->index]);
       fflush(exp3_log);
     }
   }
