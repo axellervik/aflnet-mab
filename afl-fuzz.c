@@ -2238,6 +2238,11 @@ static void add_to_queue(u8* fname, u32 len, u8 passed_det) {
 
   }
 
+  if (exp3_log) {
+    fprintf(exp3_log, "adding arm\n");
+    fflush(exp3_log);
+  }
+
   /* MAB */
   if (seed_selection_algo == EXP3) {
     exp3_add_arm();
