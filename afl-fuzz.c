@@ -1262,15 +1262,15 @@ void exp3ix_init(double theta) {
 
   if (exp3_log) {
     fprintf(exp3_log, "[EXP3] awake* allocated\n");
-      fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
-            exp3ix->n,
-            exp3ix->capacity,
-            exp3ix->theta,
-            exp3ix->gamma,
-            exp3ix->eta,
-            exp3ix->idx,
-            (void*)exp3ix->r,
-            (void*)exp3ix->awake);
+    fprintf(exp3_log, "[EXP3] exp3->n: %d | exp3->capacity: %d | exp3->theta: %lf | exp3->gamma: %lf | exp3->eta: %lf | exp3->idx: %d | exp3->r: %p | exp3->awake: %p\n",
+          exp3ix->n,
+          exp3ix->capacity,
+          exp3ix->theta,
+          exp3ix->gamma,
+          exp3ix->eta,
+          exp3ix->idx,
+          (void*)exp3ix->r,
+          (void*)exp3ix->awake);
     fflush(exp3_log);
   }
 
@@ -1315,7 +1315,7 @@ static void exp3ix_free() {
 
 /* Add arm to Bandit, geometric growth of arrays if capacity met */
 void exp3ix_add_arm() {
-  timer = get_cur_time_us(); u64 t0 = timer;
+  // timer = get_cur_time_us(); u64 t0 = timer;
   exp3ix->n += 1;
 
   if (exp3ix->n > exp3ix->capacity) {
@@ -1338,16 +1338,18 @@ void exp3ix_add_arm() {
     }
   }
 
-  exp3ix->r[exp3ix->n-1] = 0.0;
+  // exp3ix->r[exp3ix->n-1] = 0.0;
 
   if (!exp3_log) return;
 
-  fprintf(exp3_log,
-          "[EXP3] Added arm %d\n",
-          exp3->n);
-  
-  fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
-  fflush(exp3_log);
+  // fprintf(exp3_log,
+  //         "[EXP3] Added arm %d, r[%d-1]: %lf\n",
+  //         exp3ix->n,
+  //         exp3ix->n,
+  //         exp3ix->r[exp3ix->n-1]);
+  // 
+  // fprintf(exp3_log, "%llu µs exp3_add_arm()\n", get_cur_time_us() - t0);
+  // fflush(exp3_log);
 }
 
 /* Wake or put arms to sleep based on whether seed traverses target state */
@@ -1361,13 +1363,22 @@ void exp3ix_lullaby(state_info_t *state) {
   exp3ix->n_awake = state->seeds_count;
   exp3ix->r_sum = 0.0;
 
-  exp3ix->eta = exp3ix->theta * sqrt(2.0 * log((double)exp3ix->n_awake) / exp3ix->n_awake);
+  exp3ix->eta = exp3ix->theta * sqrt(2.0 * log((double)exp3ix->n_awake) / (double)exp3ix->n_awake);
   exp3ix->gamma = exp3ix->eta / 2.0;
+
+  if (exp3_log) {
+    fprintf(exp3_log, "[EXP3] Eta: %lf | Gamma: %lf\n", exp3ix->eta, exp3ix->gamma);
+    fflush(exp3_log);
+  }
 
   for (int i = 0; i < exp3ix->n_awake; i++) {
     struct queue_entry *q = (struct queue_entry *) state->seeds[i];
     exp3ix->awake[i] = q->index;
     exp3ix->r_sum += exp(exp3ix->eta * exp3ix->r[q->index]);
+    if (exp3_log && exp3ix->r[q->index] > 0.0) {
+      fprintf(exp3_log, "Arm %d has accumulated reward %lf\n", q->index+1, exp3ix->r[q->index]);
+      fflush(exp3_log);
+    }
   }
 
   if (exp3_log) {
@@ -1432,7 +1443,7 @@ void exp3ix_update() {
   if (!exp3 || exp3ix->n == 0 || exp3ix->n <= exp3ix->idx) return;
 
   // double p = exp3->p[exp3->idx];
-  if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
+  // if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
 
   // u8 hnb = has_new_bits(virgin_bits);
   double reward = 0.6 * exp3ix->code_cov
@@ -9855,6 +9866,7 @@ int main(int argc, char** argv) {
             "afl-fuzz with sudo or by \"$ setcap cap_sys_admin+ep /path/to/afl-fuzz\".", netns_name);
   }
 
+
   if (feedback_type > 1 && !state_aware_mode) 
     FATAL("Feedback type %d is only supported in state-aware mode", feedback_type);
   
@@ -9862,6 +9874,7 @@ int main(int argc, char** argv) {
     FATAL("Seed schedule %d is only supported in state-aware mode", seed_schedule_type);
 
   setup_signal_handlers();
+
   check_asan_opts();
 
   if (sync_id) fix_up_sync();
@@ -9925,6 +9938,11 @@ int main(int argc, char** argv) {
   read_testcases();
   load_auto();
 
+  if (exp3_log) {
+    fprintf(exp3_log, "done\n");
+    fflush(exp3_log);
+  }
+
   pivot_inputs();
 
   if (extras_dir) load_extras(extras_dir);
@@ -9938,6 +9956,11 @@ int main(int argc, char** argv) {
   check_binary(argv[optind]);
 
   start_time = get_cur_time();
+
+  if (exp3_log) {
+    fprintf(exp3_log, "start time hello\n");
+    fflush(exp3_log);
+  }
 
   if (qemu_mode)
     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
