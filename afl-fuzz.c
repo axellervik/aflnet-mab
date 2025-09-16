@@ -334,7 +334,7 @@ typedef struct {
 
 static struct_EXP3* exp3; /* Globally available EXP3 scheduler */
 static struct_EXP3_IX* exp3ix; /* Globally available EXP3-IX scheduler */
-static double exp3_theta = 0.2; // exploration rate
+static double exp3_theta = 0.1; // exploration rate
 static double exp3_gamma = 0.2; // exploration rate
 static double exp3_eta = 0.2;   // learning rate
 static FILE *exp3_log = NULL;
