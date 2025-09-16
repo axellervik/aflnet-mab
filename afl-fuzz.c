@@ -1440,7 +1440,7 @@ void exp3ix_update() {
     fflush(exp3_log);
   }
 
-  if (!exp3 || exp3ix->n == 0 || exp3ix->n <= exp3ix->idx) return;
+  if (!exp3ix || exp3ix->n == 0 || exp3ix->n <= exp3ix->idx) return;
 
   // double p = exp3->p[exp3->idx];
   // if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
