@@ -1463,6 +1463,9 @@ void exp3ix_update() {
   exp3ix->state_cov = 0;
   // double reward = (double)total_bitmap_size / (double)queue_cur->bitmap_size;
 
+  if (exp3ix->r_sum <= 1.0) {
+    exp3ix->r_sum = 1.0;
+  }
   double p = exp(exp3ix->eta * exp3ix->r[exp3ix->idx]) / exp3ix->r_sum;
 
   double old_r = exp3ix->r[exp3ix->idx];
@@ -1475,9 +1478,9 @@ void exp3ix_update() {
           exp3ix->idx+1,
           reward,
           old_r,
-          exp3ix->r[exp3->idx],
+          exp3ix->r[exp3ix->idx],
           reward / (p + exp3ix->gamma), 
-          reward, p, exp3->gamma);
+          reward, p, exp3ix->gamma);
   fprintf(exp3_log, "%llu µs exp3_update()\n", get_cur_time_us() - t0); 
   fflush(exp3_log);
 }
