@@ -1174,12 +1174,12 @@ void exp3_update() {
   //               + 0.2 * (double)queue_cur->unique_state_count / (double)state_ids_count;
 
   // u8 hnb = has_new_bits(virgin_bits);
-  double reward = 0.6 * exp3->code_cov
-                + 0.4 * exp3->state_cov;
+  double reward = 0.5 * exp3->code_cov
+                + 0.5 * exp3->state_cov;
                 // + 0.2 * ;
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.4 * %d \n+ 0.6 * %d \n",
+    fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.5 * %d code_cov\n+ 0.5 * %d state_cov\n",
       reward,
       exp3->code_cov,
       exp3->state_cov
@@ -1446,12 +1446,12 @@ void exp3ix_update() {
   // if (exp3ix->prb <= 0.0) return; // should never happen due to exploration floor, unless number of seeds becomes ridiculously high
 
   // u8 hnb = has_new_bits(virgin_bits);
-  double reward = 0.6 * exp3ix->code_cov
-                + 0.4 * exp3ix->state_cov;
+  double reward = 0.5 * exp3ix->code_cov
+                + 0.5 * exp3ix->state_cov;
                 // + 0.2 * ;
 
   if (exp3_log) {
-    fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.4 * %d \n+ 0.6 * %d \n",
+    fprintf(exp3_log, "[EXP3] reward %lf calculated from \n  0.5 * %d code_cov \n+ 0.5 * %d state_cov\n",
       reward,
       exp3ix->code_cov,
       exp3ix->state_cov
