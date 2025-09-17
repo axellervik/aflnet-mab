@@ -1675,6 +1675,9 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run)
           state_ids = (u32 *) ck_realloc(state_ids, (state_ids_count + 1) * sizeof(u32));
           state_ids[state_ids_count++] = curStateID;
 
+          if (seed_selection_algo == EXP3) exp3->state_cov = 1;
+          else if (seed_selection_algo == EXP3_IX)exp3ix->state_cov = 1;
+
           if (curStateID != 0) expand_was_fuzzed_map(1, 0);
         }
 
@@ -1685,6 +1688,9 @@ void update_state_aware_variables(struct queue_entry *q, u8 dry_run)
 			    edge = agedge(ipsm, from, to, "new_edge", TRUE);
           if (dry_run) agset(edge, "color", "blue");
           else agset(edge, "color", "red");
+
+          if (seed_selection_algo == EXP3) exp3->state_cov = 1;
+          else if (seed_selection_algo == EXP3_IX)exp3ix->state_cov = 1;
 		    }
 
         //Update prevStateID
